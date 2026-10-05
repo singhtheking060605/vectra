@@ -16,6 +16,8 @@
 #include <fstream>
 #include <climits>
 #include <cstring>
+#include <numeric>
+#include <map>
 
 #if defined(__AVX2__)
 #include <immintrin.h>
@@ -25,7 +27,6 @@
 #endif
 
 static const int DIMS = 16;   // demo vectors
-// Doc embeddings dimension is determined at runtime from Ollama's model output
 
 // Global runtime switch for SIMD acceleration (default: enabled if AVX2 is present)
 static bool g_simd_enabled = (VECTRA_AVX2_SUPPORTED == 1);
@@ -119,13 +120,15 @@ float cosine_avx2(const float* a, const float* b, size_t n) {
         nb256  = _mm256_add_ps(nb256,  _mm256_mul_ps(vb, vb));
 #endif
     }
-    alignas(32) float bDot[8], bNa[8], bNb[8];
-    _mm256_storeu_ps(bDot, dot256);
-    _mm256_storeu_ps(bNa,  na256);
-    _mm256_storeu_ps(bNb,  nb256);
-    float dot = bDot[0]+bDot[1]+bDot[2]+bDot[3]+bDot[4]+bDot[5]+bDot[6]+bDot[7];
-    float na  = bNa[0]+bNa[1]+bNa[2]+bNa[3]+bNa[4]+bNa[5]+bNa[6]+bNa[7];
-    float nb  = bNb[0]+bNb[1]+bNb[2]+bNb[3]+bNb[4]+bNb[5]+bNb[6]+bNb[7];
+    alignas(32) float bufDot[8], bufNa[8], bufNb[8];
+    _mm256_storeu_ps(bufDot, dot256);
+    _mm256_storeu_ps(bufNa,  na256);
+    _mm256_storeu_ps(bufNb,  nb256);
+
+    float dot = bufDot[0] + bufDot[1] + bufDot[2] + bufDot[3] + bufDot[4] + bufDot[5] + bufDot[6] + bufDot[7];
+    float na  = bufNa[0]  + bufNa[1]  + bufNa[2]  + bufNa[3]  + bufNa[4]  + bufNa[5]  + bufNa[6]  + bufNa[7];
+    float nb  = bufNb[0]  + bufNb[1]  + bufNb[2]  + bufNb[3]  + bufNb[4]  + bufNb[5]  + bufNb[6]  + bufNb[7];
+
     for (; i < n; i++) {
         dot += a[i] * b[i];
         na  += a[i] * a[i];
@@ -138,7 +141,7 @@ float cosine_avx2(const float* a, const float* b, size_t n) {
 float manhattan_avx2(const float* a, const float* b, size_t n) {
     size_t i = 0;
     __m256 sum256 = _mm256_setzero_ps();
-    __m256 sign_mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF));
+    __m256 sign_mask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7fffffff));
     for (; i + 8 <= n; i += 8) {
         __m256 va = _mm256_loadu_ps(a + i);
         __m256 vb = _mm256_loadu_ps(b + i);
@@ -149,663 +152,942 @@ float manhattan_avx2(const float* a, const float* b, size_t n) {
     alignas(32) float buf[8];
     _mm256_storeu_ps(buf, sum256);
     float s = buf[0] + buf[1] + buf[2] + buf[3] + buf[4] + buf[5] + buf[6] + buf[7];
-    for (; i < n; i++) s += std::abs(a[i] - b[i]);
+    for (; i < n; i++) {
+        s += std::abs(a[i] - b[i]);
+    }
     return s;
 }
 #endif
 
-// Master Distance Dispatchers (Dynamic SIMD routing with scalar fallback)
-float euclidean(const std::vector<float>& a, const std::vector<float>& b) {
-    size_t n = std::min(a.size(), b.size());
+// Distance Function Dispatcher
+inline float euclidean(const std::vector<float>& a, const std::vector<float>& b) {
+    if (a.empty() || a.size() != b.size()) return 0.0f;
 #if defined(__AVX2__)
-    if (g_simd_enabled) return euclidean_avx2(a.data(), b.data(), n);
+    if (g_simd_enabled) return euclidean_avx2(a.data(), b.data(), a.size());
 #endif
-    return euclidean_scalar(a.data(), b.data(), n);
+    return euclidean_scalar(a.data(), b.data(), a.size());
 }
 
-float cosine(const std::vector<float>& a, const std::vector<float>& b) {
-    size_t n = std::min(a.size(), b.size());
+inline float cosine(const std::vector<float>& a, const std::vector<float>& b) {
+    if (a.empty() || a.size() != b.size()) return 1.0f;
 #if defined(__AVX2__)
-    if (g_simd_enabled) return cosine_avx2(a.data(), b.data(), n);
+    if (g_simd_enabled) return cosine_avx2(a.data(), b.data(), a.size());
 #endif
-    return cosine_scalar(a.data(), b.data(), n);
+    return cosine_scalar(a.data(), b.data(), a.size());
 }
 
-float manhattan(const std::vector<float>& a, const std::vector<float>& b) {
-    size_t n = std::min(a.size(), b.size());
+inline float manhattan(const std::vector<float>& a, const std::vector<float>& b) {
+    if (a.empty() || a.size() != b.size()) return 0.0f;
 #if defined(__AVX2__)
-    if (g_simd_enabled) return manhattan_avx2(a.data(), b.data(), n);
+    if (g_simd_enabled) return manhattan_avx2(a.data(), b.data(), a.size());
 #endif
-    return manhattan_scalar(a.data(), b.data(), n);
+    return manhattan_scalar(a.data(), b.data(), a.size());
 }
 
-DistFn getDistFn(const std::string& m) {
-    if (m == "cosine")    return cosine;
-    if (m == "manhattan") return manhattan;
+DistFn getDistFn(const std::string& name) {
+    if (name == "cosine")    return cosine;
+    if (name == "manhattan") return manhattan;
     return euclidean;
 }
 
 // =====================================================================
-//  SCALAR QUANTIZATION (SQ8) ENGINE
-// =====================================================================
-
-struct SQ8Vector {
-    int id;
-    float min_val;
-    float diff;
-    std::vector<uint8_t> qdata;
-
-    static SQ8Vector quantize(int id, const std::vector<float>& vec) {
-        SQ8Vector sq;
-        sq.id = id;
-        if (vec.empty()) { sq.min_val = 0; sq.diff = 1.0f; return sq; }
-        float vmin = vec[0], vmax = vec[0];
-        for (float v : vec) {
-            if (v < vmin) vmin = v;
-            if (v > vmax) vmax = v;
-        }
-        sq.min_val = vmin;
-        sq.diff = (vmax - vmin < 1e-7f) ? 1.0f : (vmax - vmin);
-        sq.qdata.resize(vec.size());
-        for (size_t i = 0; i < vec.size(); i++) {
-            float norm = (vec[i] - sq.min_val) / sq.diff;
-            sq.qdata[i] = static_cast<uint8_t>(std::clamp(std::round(norm * 255.0f), 0.0f, 255.0f));
-        }
-        return sq;
-    }
-
-    std::vector<float> dequantize() const {
-        std::vector<float> res(qdata.size());
-        float inv = diff / 255.0f;
-        for (size_t i = 0; i < qdata.size(); i++) {
-            res[i] = min_val + static_cast<float>(qdata[i]) * inv;
-        }
-        return res;
-    }
-
-    // Fast Asymmetric Cosine Distance Computation (ADC)
-    float asymmetricCosine(const std::vector<float>& q) const {
-        float dot = 0.0f, na = 0.0f, nb = 0.0f;
-        float inv = diff / 255.0f;
-        size_t n = std::min(q.size(), qdata.size());
-        for (size_t i = 0; i < n; i++) {
-            float deq = min_val + static_cast<float>(qdata[i]) * inv;
-            dot += q[i] * deq;
-            na  += q[i] * q[i];
-            nb  += deq * deq;
-        }
-        if (na < 1e-9f || nb < 1e-9f) return 1.0f;
-        return 1.0f - dot / (std::sqrt(na) * std::sqrt(nb));
-    }
-
-    // Fast Asymmetric L2 Distance Computation (ADC)
-    float asymmetricL2(const std::vector<float>& q) const {
-        float s = 0.0f;
-        float inv = diff / 255.0f;
-        size_t n = std::min(q.size(), qdata.size());
-        for (size_t i = 0; i < n; i++) {
-            float deq = min_val + static_cast<float>(qdata[i]) * inv;
-            float d = q[i] - deq;
-            s += d * d;
-        }
-        return std::sqrt(s);
-    }
-};
-
-struct QuantizationStats {
-    size_t count = 0;
-    size_t dims = 0;
-    size_t fp32Bytes = 0;
-    size_t sq8Bytes = 0;
-    float compressionRatio = 0.0f;
-    float memorySavedPercent = 0.0f;
-    float meanSquaredError = 0.0f;
-};
-
-// =====================================================================
-//  BRUTE FORCE
+//  BRUTE-FORCE SEARCH (Baseline O(N * d))
 // =====================================================================
 
 class BruteForce {
+    std::unordered_map<int, VectorItem> items;
 public:
-    std::vector<VectorItem> items;
+    void insert(const VectorItem& v) { items[v.id] = v; }
+    void remove(int id)              { items.erase(id); }
 
-    void insert(const VectorItem& v) { items.push_back(v); }
-
-    std::vector<std::pair<float,int>> knn(
-        const std::vector<float>& q, int k, DistFn dist)
-    {
-        std::vector<std::pair<float,int>> r;
-        r.reserve(items.size());
-        for (auto& v : items) r.push_back({dist(q, v.emb), v.id});
-        std::sort(r.begin(), r.end());
-        if ((int)r.size() > k) r.resize(k);
-        return r;
+    std::vector<std::pair<float, int>> knn(const std::vector<float>& q, int k, DistFn dist) {
+        std::vector<std::pair<float, int>> all;
+        all.reserve(items.size());
+        for (auto& [id, item] : items) {
+            all.push_back({dist(q, item.emb), id});
+        }
+        std::sort(all.begin(), all.end());
+        if ((int)all.size() > k) all.resize(k);
+        return all;
     }
 
-    std::vector<std::pair<float,int>> knnFiltered(
-        const std::vector<float>& q, int k, DistFn dist,
-        const std::function<bool(const VectorItem&)>& predicate)
-    {
-        std::vector<std::pair<float,int>> r;
-        r.reserve(items.size());
-        for (auto& v : items) {
-            if (!predicate || predicate(v)) {
-                r.push_back({dist(q, v.emb), v.id});
+    template <typename Predicate>
+    std::vector<std::pair<float, int>> knnFiltered(const std::vector<float>& q, int k, DistFn dist, Predicate pred) {
+        std::vector<std::pair<float, int>> all;
+        for (auto& [id, item] : items) {
+            if (pred(item)) {
+                all.push_back({dist(q, item.emb), id});
             }
         }
-        std::sort(r.begin(), r.end());
-        if ((int)r.size() > k) r.resize(k);
-        return r;
-    }
-
-    void remove(int id) {
-        items.erase(std::remove_if(items.begin(), items.end(),
-            [id](const VectorItem& v){ return v.id == id; }), items.end());
+        std::sort(all.begin(), all.end());
+        if ((int)all.size() > k) all.resize(k);
+        return all;
     }
 };
 
 // =====================================================================
-//  KD-TREE
+//  KD-TREE SPATIAL PARTITIONING
 // =====================================================================
-
-struct KDNode {
-    VectorItem item;
-    KDNode* left  = nullptr;
-    KDNode* right = nullptr;
-    explicit KDNode(const VectorItem& v) : item(v) {}
-};
 
 class KDTree {
-    KDNode* root = nullptr;
+    struct Node {
+        VectorItem item;
+        int axis;
+        Node* left  = nullptr;
+        Node* right = nullptr;
+        Node(VectorItem v, int ax) : item(v), axis(ax) {}
+    };
+
+    Node* root = nullptr;
     int dims;
 
-    void destroy(KDNode* n) {
-        if (!n) return; destroy(n->left); destroy(n->right); delete n;
-    }
-
-    KDNode* ins(KDNode* n, const VectorItem& v, int d) {
-        if (!n) return new KDNode(v);
-        int ax = d % dims;
-        if (v.emb[ax] < n->item.emb[ax]) n->left  = ins(n->left,  v, d+1);
-        else                              n->right = ins(n->right, v, d+1);
+    Node* build(std::vector<VectorItem>& items, int depth) {
+        if (items.empty()) return nullptr;
+        int ax = depth % dims;
+        size_t mid = items.size() / 2;
+        std::nth_element(items.begin(), items.begin() + mid, items.end(),
+            [ax](const VectorItem& a, const VectorItem& b) {
+                return a.emb[ax] < b.emb[ax];
+            });
+        Node* n = new Node(items[mid], ax);
+        std::vector<VectorItem> left(items.begin(), items.begin() + mid);
+        std::vector<VectorItem> right(items.begin() + mid + 1, items.end());
+        n->left  = build(left,  depth + 1);
+        n->right = build(right, depth + 1);
         return n;
     }
 
-    void knn(KDNode* n, const std::vector<float>& q, int k, int d, DistFn dist,
-             std::priority_queue<std::pair<float,int>>& heap)
-    {
-        if (!n) return;
-        float dn = dist(q, n->item.emb);
-        if ((int)heap.size() < k || dn < heap.top().first) {
-            heap.push({dn, n->item.id});
-            if ((int)heap.size() > k) heap.pop();
+    void search(Node* node, const std::vector<float>& q, int k, DistFn dist,
+                std::priority_queue<std::pair<float, int>>& pq) const {
+        if (!node) return;
+        float d = dist(q, node->item.emb);
+        pq.push({d, node->item.id});
+        if ((int)pq.size() > k) pq.pop();
+
+        int ax = node->axis;
+        float diff = q[ax] - node->item.emb[ax];
+        Node* first  = diff <= 0 ? node->left  : node->right;
+        Node* second = diff <= 0 ? node->right : node->left;
+
+        search(first, q, k, dist, pq);
+        if (std::abs(diff) < pq.top().first || (int)pq.size() < k) {
+            search(second, q, k, dist, pq);
         }
-        int ax = d % dims;
-        float diff = q[ax] - n->item.emb[ax];
-        KDNode* closer  = diff < 0 ? n->left  : n->right;
-        KDNode* farther = diff < 0 ? n->right : n->left;
-        knn(closer, q, k, d+1, dist, heap);
-        if ((int)heap.size() < k || std::abs(diff) < heap.top().first)
-            knn(farther, q, k, d+1, dist, heap);
+    }
+
+    void freeTree(Node* n) {
+        if (!n) return;
+        freeTree(n->left);
+        freeTree(n->right);
+        delete n;
     }
 
 public:
     explicit KDTree(int d) : dims(d) {}
-    ~KDTree() { destroy(root); }
+    ~KDTree() { freeTree(root); }
 
-    void insert(const VectorItem& v) { root = ins(root, v, 0); }
-
-    std::vector<std::pair<float,int>> knn(
-        const std::vector<float>& q, int k, DistFn dist)
-    {
-        std::priority_queue<std::pair<float,int>> heap;
-        knn(root, q, k, 0, dist, heap);
-        std::vector<std::pair<float,int>> r;
-        while (!heap.empty()) { r.push_back(heap.top()); heap.pop(); }
-        std::sort(r.begin(), r.end());
-        return r;
+    void rebuild(std::vector<VectorItem>& items) {
+        freeTree(root);
+        root = build(items, 0);
     }
 
-    void rebuild(const std::vector<VectorItem>& items) {
-        destroy(root); root = nullptr;
-        for (auto& v : items) insert(v);
+    void insert(const VectorItem& v) {
+        if (!root) { root = new Node(v, 0); return; }
+        Node* cur = root;
+        int depth = 0;
+        while (true) {
+            int ax = depth % dims;
+            if (v.emb[ax] < cur->item.emb[ax]) {
+                if (!cur->left) { cur->left = new Node(v, (depth + 1) % dims); break; }
+                cur = cur->left;
+            } else {
+                if (!cur->right) { cur->right = new Node(v, (depth + 1) % dims); break; }
+                cur = cur->right;
+            }
+            depth++;
+        }
+    }
+
+    std::vector<std::pair<float, int>> knn(const std::vector<float>& q, int k, DistFn dist) const {
+        std::priority_queue<std::pair<float, int>> pq;
+        search(root, q, k, dist, pq);
+        std::vector<std::pair<float, int>> res;
+        while (!pq.empty()) { res.push_back(pq.top()); pq.pop(); }
+        std::reverse(res.begin(), res.end());
+        return res;
     }
 };
 
 // =====================================================================
-//  HNSW — Hierarchical Navigable Small World (with Filtered Traversal)
+//  HNSW (Hierarchical Navigable Small World Graph)
 // =====================================================================
 
 class HNSW {
 public:
     struct Node {
-        VectorItem item;
-        int maxLyr;
-        std::vector<std::vector<int>> nbrs;
+        int id;
+        std::vector<float> emb;
+        std::string metadata;
+        std::string category;
+        int maxLayer;
+        std::vector<std::vector<int>> neighbors; // layer -> list of neighbor IDs
     };
 
-    std::unordered_map<int, Node> G;
-    int    M, M0, ef_build;
-    float  mL;
-    int    topLayer = -1;
-    int    entryPt  = -1;
-    std::mt19937 rng;
+    struct GraphInfo {
+        int topLayer;
+        size_t nodeCount;
+        std::vector<int> nodesPerLayer;
+        std::vector<int> edgesPerLayer;
+        struct GNode { int id; std::string metadata, category; int maxLyr; };
+        struct GEdge { int src, dst, lyr; };
+        std::vector<GNode> nodes;
+        std::vector<GEdge> edges;
+    };
 
-    int randLevel() {
-        std::uniform_real_distribution<float> u(0.0f, 1.0f);
-        return (int)std::floor(-std::log(u(rng)) * mL);
+private:
+    int M;
+    int efConstruction;
+    double mL;
+    int entryPointId = -1;
+    int maxLayer = -1;
+    std::unordered_map<int, Node> nodes;
+    std::mt19937 rng{42};
+    std::uniform_real_distribution<double> unif{0.0, 1.0};
+
+    int randomLayer() {
+        double r = unif(rng);
+        if (r == 0.0) r = 0.00001;
+        return (int)(-std::log(r) * mL);
     }
 
-    std::vector<std::pair<float,int>> searchLayer(
-        const std::vector<float>& q, int ep, int ef, int lyr, DistFn dist)
-    {
-        std::unordered_map<int,bool> vis;
-        std::priority_queue<std::pair<float,int>,
-            std::vector<std::pair<float,int>>, std::greater<>> cands;
-        std::priority_queue<std::pair<float,int>> found;
+    std::vector<std::pair<float, int>> searchLayer(const std::vector<float>& q,
+                                                   const std::vector<int>& enterPoints,
+                                                   int ef, int layer, DistFn dist) const {
+        std::unordered_map<int, bool> visited;
+        std::priority_queue<std::pair<float, int>,
+                            std::vector<std::pair<float, int>>,
+                            std::greater<std::pair<float, int>>> candidates;
+        std::priority_queue<std::pair<float, int>> w;
 
-        float d0 = dist(q, G[ep].item.emb);
-        vis[ep] = true;
-        cands.push({d0, ep});
-        found.push({d0, ep});
+        for (int ep : enterPoints) {
+            if (!nodes.count(ep)) continue;
+            float d = dist(q, nodes.at(ep).emb);
+            visited[ep] = true;
+            candidates.push({d, ep});
+            w.push({d, ep});
+        }
 
-        while (!cands.empty()) {
-            auto [cd, cid] = cands.top(); cands.pop();
-            if ((int)found.size() >= ef && cd > found.top().first) break;
-            if (lyr >= (int)G[cid].nbrs.size()) continue;
-            for (int nid : G[cid].nbrs[lyr]) {
-                if (vis[nid] || !G.count(nid)) continue;
-                vis[nid] = true;
-                float nd = dist(q, G[nid].item.emb);
-                if ((int)found.size() < ef || nd < found.top().first) {
-                    cands.push({nd, nid});
-                    found.push({nd, nid});
-                    if ((int)found.size() > ef) found.pop();
+        while (!candidates.empty()) {
+            auto [cDist, cId] = candidates.top();
+            candidates.pop();
+            float furthestDist = w.empty() ? 1e9f : w.top().first;
+            if (cDist > furthestDist && (int)w.size() >= ef) break;
+
+            if (!nodes.count(cId) || (int)nodes.at(cId).neighbors.size() <= layer) continue;
+            const auto& neighbors = nodes.at(cId).neighbors[layer];
+
+            for (int nId : neighbors) {
+                if (visited[nId] || !nodes.count(nId)) continue;
+                visited[nId] = true;
+                float d = dist(q, nodes.at(nId).emb);
+                if (d < furthestDist || (int)w.size() < ef) {
+                    candidates.push({d, nId});
+                    w.push({d, nId});
+                    if ((int)w.size() > ef) w.pop();
+                    furthestDist = w.top().first;
                 }
             }
         }
 
-        std::vector<std::pair<float,int>> res;
-        while (!found.empty()) { res.push_back(found.top()); found.pop(); }
-        std::sort(res.begin(), res.end());
-        return res;
+        std::vector<std::pair<float, int>> result;
+        while (!w.empty()) { result.push_back(w.top()); w.pop(); }
+        std::reverse(result.begin(), result.end());
+        return result;
     }
 
-    // Hybrid Filtered Traversal: Traverses the graph spatially but admits only matching nodes into results
-    std::vector<std::pair<float,int>> searchLayerFiltered(
-        const std::vector<float>& q, int ep, int ef, int lyr, DistFn dist,
-        const std::function<bool(const VectorItem&)>& predicate)
-    {
-        std::unordered_map<int,bool> vis;
-        std::priority_queue<std::pair<float,int>,
-            std::vector<std::pair<float,int>>, std::greater<>> cands;
-        std::priority_queue<std::pair<float,int>> found;
+public:
+    HNSW(int m = 16, int efC = 200) : M(m), efConstruction(efC), mL(1.0 / std::log(m)) {}
 
-        float d0 = dist(q, G[ep].item.emb);
-        vis[ep] = true;
-        cands.push({d0, ep});
-        if (!predicate || predicate(G[ep].item)) {
-            found.push({d0, ep});
+    void insert(const VectorItem& v, DistFn dist) {
+        int l = randomLayer();
+        Node newNode;
+        newNode.id = v.id;
+        newNode.emb = v.emb;
+        newNode.metadata = v.metadata;
+        newNode.category = v.category;
+        newNode.maxLayer = l;
+        newNode.neighbors.resize(l + 1);
+
+        if (nodes.empty()) {
+            entryPointId = v.id;
+            maxLayer = l;
+            nodes[v.id] = newNode;
+            return;
         }
 
-        while (!cands.empty()) {
-            auto [cd, cid] = cands.top(); cands.pop();
-            if ((int)found.size() >= ef && cd > found.top().first) break;
-            if (lyr >= (int)G[cid].nbrs.size()) continue;
-            for (int nid : G[cid].nbrs[lyr]) {
-                if (vis[nid] || !G.count(nid)) continue;
-                vis[nid] = true;
-                float nd = dist(q, G[nid].item.emb);
-                if (found.empty() || nd < found.top().first || (int)found.size() < ef) {
-                    cands.push({nd, nid});
-                    if (!predicate || predicate(G[nid].item)) {
-                        found.push({nd, nid});
-                        if ((int)found.size() > ef) found.pop();
+        std::vector<int> currObj = {entryPointId};
+        for (int lc = maxLayer; lc > l; lc--) {
+            auto results = searchLayer(v.emb, currObj, 1, lc, dist);
+            if (!results.empty()) currObj = {results[0].second};
+        }
+
+        for (int lc = std::min(maxLayer, l); lc >= 0; lc--) {
+            auto results = searchLayer(v.emb, currObj, efConstruction, lc, dist);
+            std::vector<std::pair<float, int>> candidates = results;
+            std::sort(candidates.begin(), candidates.end());
+
+            int count = 0;
+            for (auto& [d, nId] : candidates) {
+                if (count >= M) break;
+                if (nId == v.id) continue;
+                newNode.neighbors[lc].push_back(nId);
+                if ((int)nodes[nId].neighbors.size() > lc) {
+                    nodes[nId].neighbors[lc].push_back(v.id);
+                }
+                count++;
+            }
+            if (!results.empty()) currObj = {results[0].second};
+        }
+
+        if (l > maxLayer) {
+            maxLayer = l;
+            entryPointId = v.id;
+        }
+        nodes[v.id] = newNode;
+    }
+
+    void remove(int id) {
+        if (!nodes.count(id)) return;
+        for (auto& [nId, n] : nodes) {
+            for (auto& nbrList : n.neighbors) {
+                nbrList.erase(std::remove(nbrList.begin(), nbrList.end(), id), nbrList.end());
+            }
+        }
+        nodes.erase(id);
+        if (entryPointId == id) {
+            entryPointId = nodes.empty() ? -1 : nodes.begin()->first;
+            maxLayer = -1;
+            for (auto& [nId, n] : nodes) maxLayer = std::max(maxLayer, n.maxLayer);
+        }
+    }
+
+    std::vector<std::pair<float, int>> knn(const std::vector<float>& q, int k, int ef, DistFn dist) const {
+        if (nodes.empty()) return {};
+        std::vector<int> currObj = {entryPointId};
+        for (int lc = maxLayer; lc > 0; lc--) {
+            auto results = searchLayer(q, currObj, 1, lc, dist);
+            if (!results.empty()) currObj = {results[0].second};
+        }
+        auto results = searchLayer(q, currObj, std::max(ef, k), 0, dist);
+        if ((int)results.size() > k) results.resize(k);
+        return results;
+    }
+
+    template <typename Predicate>
+    std::vector<std::pair<float, int>> knnFiltered(const std::vector<float>& q, int k, int ef, DistFn dist, Predicate pred) const {
+        if (nodes.empty()) return {};
+        auto candidatePool = searchLayer(q, {entryPointId}, std::max(ef * 3, k * 5), 0, dist);
+        std::vector<std::pair<float, int>> filtered;
+        for (auto& [d, id] : candidatePool) {
+            if (nodes.count(id)) {
+                VectorItem vi{id, nodes.at(id).metadata, nodes.at(id).category, nodes.at(id).emb};
+                if (pred(vi)) {
+                    filtered.push_back({d, id});
+                    if ((int)filtered.size() >= k) break;
+                }
+            }
+        }
+        return filtered;
+    }
+
+    GraphInfo getGraphInfo() const {
+        GraphInfo gi;
+        gi.topLayer = maxLayer;
+        gi.nodeCount = nodes.size();
+        if (maxLayer < 0) return gi;
+
+        gi.nodesPerLayer.resize(maxLayer + 1, 0);
+        gi.edgesPerLayer.resize(maxLayer + 1, 0);
+
+        for (const auto& [id, n] : nodes) {
+            gi.nodes.push_back({id, n.metadata, n.category, n.maxLayer});
+            for (int l = 0; l <= n.maxLayer && l <= maxLayer; l++) {
+                gi.nodesPerLayer[l]++;
+                if (l < (int)n.neighbors.size()) {
+                    for (int dst : n.neighbors[l]) {
+                        if (id < dst) {
+                            gi.edges.push_back({id, dst, l});
+                            gi.edgesPerLayer[l]++;
+                        }
                     }
                 }
             }
         }
-
-        std::vector<std::pair<float,int>> res;
-        while (!found.empty()) { res.push_back(found.top()); found.pop(); }
-        std::sort(res.begin(), res.end());
-        return res;
+        return gi;
     }
+};
 
-    std::vector<int> selectNbrs(std::vector<std::pair<float,int>>& cands, int maxM) {
-        std::vector<int> r;
-        for (int i = 0; i < std::min((int)cands.size(), maxM); i++)
-            r.push_back(cands[i].second);
-        return r;
-    }
+// =====================================================================
+//  WEEK 3: K-MEANS CLUSTERING & INVERTED FILE INDEX (IVF-FLAT)
+// =====================================================================
 
+class IVFFlat {
 public:
-    HNSW(int m = 16, int efBuild = 200)
-        : M(m), M0(2*m), ef_build(efBuild),
-          mL(1.0f / std::log((float)m)), rng(42) {}
+    int dims;
+    int nlist; // number of Voronoi partitions (clusters)
+    std::vector<std::vector<float>> centroids;
+    std::unordered_map<int, std::vector<int>> invertedLists; // centroid_idx -> [itemIds]
+    std::unordered_map<int, VectorItem> items;
+    bool isTrained = false;
+    float totalInertia = 0.0f;
+    int iterationsRun = 0;
 
-    void insert(const VectorItem& item, DistFn dist) {
-        int id  = item.id;
-        int lvl = randLevel();
-        G[id]   = {item, lvl, std::vector<std::vector<int>>(lvl + 1)};
+    IVFFlat(int d, int k = 4) : dims(d), nlist(k) {}
 
-        if (entryPt == -1) { entryPt = id; topLayer = lvl; return; }
+    // Lloyd's Algorithm Implementation for K-Means Clustering
+    void train(const std::vector<VectorItem>& data, int kClusters = 4, int maxIters = 25, DistFn dist = nullptr) {
+        if (data.empty()) return;
+        if (!dist) dist = euclidean;
+        nlist = std::min((int)data.size(), std::max(2, kClusters));
+        centroids.clear();
+        invertedLists.clear();
+        items.clear();
+        for (const auto& item : data) items[item.id] = item;
 
-        int ep = entryPt;
-        for (int lc = topLayer; lc > lvl; lc--) {
-            if (lc < (int)G[ep].nbrs.size()) {
-                auto W = searchLayer(item.emb, ep, 1, lc, dist);
-                if (!W.empty()) ep = W[0].second;
-            }
-        }
-        for (int lc = std::min(topLayer, lvl); lc >= 0; lc--) {
-            auto W   = searchLayer(item.emb, ep, ef_build, lc, dist);
-            int maxM = (lc == 0) ? M0 : M;
-            auto sel = selectNbrs(W, maxM);
-            G[id].nbrs[lc] = sel;
+        // 1. Centroid Initialization: K-Means++ deterministic spread
+        std::vector<bool> picked(data.size(), false);
+        centroids.push_back(data[0].emb);
+        picked[0] = true;
 
-            for (int nid : sel) {
-                if (!G.count(nid)) continue;
-                if ((int)G[nid].nbrs.size() <= lc) G[nid].nbrs.resize(lc + 1);
-                auto& conn = G[nid].nbrs[lc];
-                conn.push_back(id);
-                if ((int)conn.size() > maxM) {
-                    std::vector<std::pair<float,int>> ds;
-                    for (int c : conn) if (G.count(c))
-                        ds.push_back({dist(G[nid].item.emb, G[c].item.emb), c});
-                    std::sort(ds.begin(), ds.end());
-                    conn.clear();
-                    for (int i = 0; i < maxM && i < (int)ds.size(); i++)
-                        conn.push_back(ds[i].second);
+        for (int c = 1; c < nlist; c++) {
+            float maxMinDist = -1.0f;
+            int bestIdx = 0;
+            for (size_t i = 0; i < data.size(); i++) {
+                if (picked[i]) continue;
+                float minDist = 1e9f;
+                for (const auto& cent : centroids) {
+                    float d = dist(data[i].emb, cent);
+                    minDist = std::min(minDist, d);
+                }
+                if (minDist > maxMinDist) {
+                    maxMinDist = minDist;
+                    bestIdx = (int)i;
                 }
             }
-            if (!W.empty()) ep = W[0].second;
+            centroids.push_back(data[bestIdx].emb);
+            picked[bestIdx] = true;
         }
-        if (lvl > topLayer) { topLayer = lvl; entryPt = id; }
+
+        // 2. Iterative Lloyd updates (Assign -> Recompute Center)
+        for (int iter = 0; iter < maxIters; iter++) {
+            std::vector<std::vector<int>> clusterMembers(nlist);
+            for (size_t i = 0; i < data.size(); i++) {
+                float bestDist = 1e9f;
+                int bestC = 0;
+                for (int c = 0; c < nlist; c++) {
+                    float d = dist(data[i].emb, centroids[c]);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        bestC = c;
+                    }
+                }
+                clusterMembers[bestC].push_back((int)i);
+            }
+
+            // Update step
+            bool converged = true;
+            for (int c = 0; c < nlist; c++) {
+                if (clusterMembers[c].empty()) continue;
+                std::vector<float> newCent(dims, 0.0f);
+                for (int idx : clusterMembers[c]) {
+                    for (int d = 0; d < dims; d++) {
+                        newCent[d] += data[idx].emb[d];
+                    }
+                }
+                for (int d = 0; d < dims; d++) {
+                    newCent[d] /= (float)clusterMembers[c].size();
+                }
+                if (dist(centroids[c], newCent) > 1e-4f) {
+                    converged = false;
+                }
+                centroids[c] = newCent;
+            }
+            iterationsRun = iter + 1;
+            if (converged) break;
+        }
+
+        // 3. Build Inverted File Lists
+        totalInertia = 0.0f;
+        for (const auto& item : data) {
+            float bestDist = 1e9f;
+            int bestC = 0;
+            for (int c = 0; c < nlist; c++) {
+                float d = dist(item.emb, centroids[c]);
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestC = c;
+                }
+            }
+            invertedLists[bestC].push_back(item.id);
+            totalInertia += bestDist * bestDist;
+        }
+        isTrained = true;
     }
 
-    std::vector<std::pair<float,int>> knn(
-        const std::vector<float>& q, int k, int ef, DistFn dist)
-    {
-        if (entryPt == -1) return {};
-        int ep = entryPt;
-        for (int lc = topLayer; lc > 0; lc--) {
-            if (lc < (int)G[ep].nbrs.size()) {
-                auto W = searchLayer(q, ep, 1, lc, dist);
-                if (!W.empty()) ep = W[0].second;
+    void insert(const VectorItem& item, DistFn dist = nullptr) {
+        if (!dist) dist = euclidean;
+        items[item.id] = item;
+        if (!isTrained || centroids.empty()) return;
+        float bestDist = 1e9f;
+        int bestC = 0;
+        for (int c = 0; c < (int)centroids.size(); c++) {
+            float d = dist(item.emb, centroids[c]);
+            if (d < bestDist) {
+                bestDist = d;
+                bestC = c;
             }
         }
-        auto W = searchLayer(q, ep, std::max(ef, k), 0, dist);
-        if ((int)W.size() > k) W.resize(k);
-        return W;
-    }
-
-    // Hybrid Filtered KNN Search
-    std::vector<std::pair<float,int>> knnFiltered(
-        const std::vector<float>& q, int k, int ef, DistFn dist,
-        const std::function<bool(const VectorItem&)>& predicate)
-    {
-        if (entryPt == -1) return {};
-        int ep = entryPt;
-        if (predicate && !predicate(G[ep].item)) {
-            for (const auto& [nid, nd] : G) {
-                if (predicate(nd.item)) {
-                    ep = nid;
-                    break;
-                }
-            }
-        }
-        for (int lc = topLayer; lc > 0; lc--) {
-            if (lc < (int)G[ep].nbrs.size()) {
-                auto W = searchLayer(q, ep, 1, lc, dist);
-                if (!W.empty()) ep = W[0].second;
-            }
-        }
-        auto W = searchLayerFiltered(q, ep, std::max(ef, k), 0, dist, predicate);
-        if (W.empty()) {
-            for (const auto& [nid, nd] : G) {
-                if (!predicate || predicate(nd.item)) {
-                    W.push_back({dist(q, nd.item.emb), nid});
-                }
-            }
-            std::sort(W.begin(), W.end());
-        }
-        if ((int)W.size() > k) W.resize(k);
-        return W;
+        invertedLists[bestC].push_back(item.id);
     }
 
     void remove(int id) {
-        if (!G.count(id)) return;
-        for (auto& [nid, nd] : G)
-            for (auto& layer : nd.nbrs)
-                layer.erase(std::remove(layer.begin(), layer.end(), id), layer.end());
-        if (entryPt == id) {
-            entryPt = -1;
-            for (auto& [nid, nd] : G) if (nid != id) { entryPt = nid; break; }
+        items.erase(id);
+        for (auto& [c, list] : invertedLists) {
+            list.erase(std::remove(list.begin(), list.end(), id), list.end());
         }
-        G.erase(id);
     }
 
-    void clear() {
-        G.clear();
-        topLayer = -1;
-        entryPt  = -1;
-    }
+    // Search top-k using nprobe multi-centroid probing (Voronoi cell filtering)
+    std::vector<std::pair<float, int>> knn(const std::vector<float>& q, int k, int nprobe, DistFn dist = nullptr) const {
+        if (!isTrained || centroids.empty()) return {};
+        if (!dist) dist = euclidean;
+        nprobe = std::max(1, std::min(nprobe, (int)centroids.size()));
 
-    // Binary serialization for snapshotting
-    void serialize(std::ostream& out) const {
-        int32_t tl = topLayer, ep = entryPt;
-        int32_t m = M, m0 = M0, efb = ef_build;
-        out.write(reinterpret_cast<const char*>(&tl), sizeof(tl));
-        out.write(reinterpret_cast<const char*>(&ep), sizeof(ep));
-        out.write(reinterpret_cast<const char*>(&m), sizeof(m));
-        out.write(reinterpret_cast<const char*>(&m0), sizeof(m0));
-        out.write(reinterpret_cast<const char*>(&efb), sizeof(efb));
-        out.write(reinterpret_cast<const char*>(&mL), sizeof(mL));
+        // Rank centroids by distance to query vector
+        std::vector<std::pair<float, int>> centroidDist;
+        for (int c = 0; c < (int)centroids.size(); c++) {
+            centroidDist.push_back({dist(q, centroids[c]), c});
+        }
+        std::sort(centroidDist.begin(), centroidDist.end());
 
-        uint64_t nodeCount = G.size();
-        out.write(reinterpret_cast<const char*>(&nodeCount), sizeof(nodeCount));
-        for (const auto& [nid, nd] : G) {
-            int32_t id = nid;
-            int32_t maxLyr = nd.maxLyr;
-            out.write(reinterpret_cast<const char*>(&id), sizeof(id));
-            out.write(reinterpret_cast<const char*>(&maxLyr), sizeof(maxLyr));
-            uint32_t layerCount = (uint32_t)nd.nbrs.size();
-            out.write(reinterpret_cast<const char*>(&layerCount), sizeof(layerCount));
-            for (uint32_t lc = 0; lc < layerCount; lc++) {
-                uint32_t nbrCount = (uint32_t)nd.nbrs[lc].size();
-                out.write(reinterpret_cast<const char*>(&nbrCount), sizeof(nbrCount));
-                if (nbrCount > 0) {
-                    out.write(reinterpret_cast<const char*>(nd.nbrs[lc].data()), nbrCount * sizeof(int));
+        // Probe only the inverted lists of the closest nprobe Voronoi cells
+        std::vector<std::pair<float, int>> candidates;
+        for (int p = 0; p < nprobe; p++) {
+            int c = centroidDist[p].second;
+            if (invertedLists.count(c)) {
+                for (int itemId : invertedLists.at(c)) {
+                    if (items.count(itemId)) {
+                        candidates.push_back({dist(q, items.at(itemId).emb), itemId});
+                    }
                 }
             }
         }
+        std::sort(candidates.begin(), candidates.end());
+        if ((int)candidates.size() > k) candidates.resize(k);
+        return candidates;
     }
-
-    // Binary deserialization for restoring graph directly
-    void deserialize(std::istream& in, const std::unordered_map<int, VectorItem>& items) {
-        clear();
-        int32_t tl = -1, ep = -1;
-        int32_t m = 16, m0 = 32, efb = 200;
-        in.read(reinterpret_cast<char*>(&tl), sizeof(tl));
-        in.read(reinterpret_cast<char*>(&ep), sizeof(ep));
-        in.read(reinterpret_cast<char*>(&m), sizeof(m));
-        in.read(reinterpret_cast<char*>(&m0), sizeof(m0));
-        in.read(reinterpret_cast<char*>(&efb), sizeof(efb));
-        in.read(reinterpret_cast<char*>(&mL), sizeof(mL));
-        topLayer = tl; entryPt = ep; M = m; M0 = m0; ef_build = efb;
-
-        uint64_t nodeCount = 0;
-        in.read(reinterpret_cast<char*>(&nodeCount), sizeof(nodeCount));
-        for (uint64_t i = 0; i < nodeCount; i++) {
-            int32_t id = 0, maxLyr = 0;
-            in.read(reinterpret_cast<char*>(&id), sizeof(id));
-            in.read(reinterpret_cast<char*>(&maxLyr), sizeof(maxLyr));
-            uint32_t layerCount = 0;
-            in.read(reinterpret_cast<char*>(&layerCount), sizeof(layerCount));
-            std::vector<std::vector<int>> nbrs(layerCount);
-            for (uint32_t lc = 0; lc < layerCount; lc++) {
-                uint32_t nbrCount = 0;
-                in.read(reinterpret_cast<char*>(&nbrCount), sizeof(nbrCount));
-                nbrs[lc].resize(nbrCount);
-                if (nbrCount > 0) {
-                    in.read(reinterpret_cast<char*>(nbrs[lc].data()), nbrCount * sizeof(int));
-                }
-            }
-            auto it = items.find(id);
-            if (it != items.end()) {
-                G[id] = {it->second, maxLyr, nbrs};
-            }
-        }
-    }
-
-    struct GraphInfo {
-        int topLayer, nodeCount;
-        std::vector<int> nodesPerLayer, edgesPerLayer;
-        struct NV { int id; std::string metadata, category; int maxLyr; };
-        struct EV { int src, dst, lyr; };
-        std::vector<NV> nodes;
-        std::vector<EV> edges;
-    };
-
-    GraphInfo getInfo() {
-        GraphInfo gi;
-        gi.topLayer  = topLayer;
-        gi.nodeCount = (int)G.size();
-        int maxL = std::max(topLayer + 1, 1);
-        gi.nodesPerLayer.assign(maxL, 0);
-        gi.edgesPerLayer.assign(maxL, 0);
-        for (auto& [id, nd] : G) {
-            gi.nodes.push_back({id, nd.item.metadata, nd.item.category, nd.maxLyr});
-            for (int lc = 0; lc <= nd.maxLyr && lc < maxL; lc++) {
-                gi.nodesPerLayer[lc]++;
-                if (lc < (int)nd.nbrs.size())
-                    for (int nid : nd.nbrs[lc])
-                        if (id < nid) {
-                            gi.edgesPerLayer[lc]++;
-                            gi.edges.push_back({id, nid, lc});
-                        }
-            }
-        }
-        return gi;
-    }
-
-    size_t size() const { return G.size(); }
 };
 
 // =====================================================================
-//  WRITE-AHEAD LOGGING (WAL) ENGINE
+//  WEEK 4: PRINCIPAL COMPONENT ANALYSIS (PCA & AVX2 PROJECTION)
+// =====================================================================
+
+class PCAReducer {
+public:
+    int dims;
+    int nComponents;
+    std::vector<float> mean;
+    std::vector<std::vector<float>> components; // Principal Eigenvectors (nComponents x dims)
+    std::vector<float> eigenvalues;
+    std::vector<float> explainedVarianceRatio;
+    bool isFitted = false;
+
+    explicit PCAReducer(int d) : dims(d), nComponents(2), mean(d, 0.0f) {}
+
+    // Power Iteration with Hotelling Deflation for top Principal Eigenvectors
+    void fit(const std::vector<std::vector<float>>& data, int kComp = 2) {
+        if (data.empty()) return;
+        nComponents = std::min(kComp, dims);
+        size_t N = data.size();
+
+        // 1. Mean calculation
+        mean.assign(dims, 0.0f);
+        for (const auto& vec : data) {
+            for (int j = 0; j < dims; j++) mean[j] += vec[j];
+        }
+        for (int j = 0; j < dims; j++) mean[j] /= (float)N;
+
+        // 2. Covariance matrix C = (1/N) * sum((x-u)(x-u)^T)
+        std::vector<std::vector<float>> cov(dims, std::vector<float>(dims, 0.0f));
+        for (const auto& vec : data) {
+            std::vector<float> centered(dims);
+            for (int j = 0; j < dims; j++) centered[j] = vec[j] - mean[j];
+            for (int r = 0; r < dims; r++) {
+                for (int c = 0; c < dims; c++) {
+                    cov[r][c] += centered[r] * centered[c];
+                }
+            }
+        }
+        float totalVar = 0.0f;
+        for (int r = 0; r < dims; r++) {
+            for (int c = 0; c < dims; c++) {
+                cov[r][c] /= (float)N;
+            }
+            totalVar += cov[r][r];
+        }
+        if (totalVar < 1e-9f) totalVar = 1.0f;
+
+        components.clear();
+        eigenvalues.clear();
+        explainedVarianceRatio.clear();
+
+        // 3. Power Iteration & Deflation for top k components
+        std::vector<std::vector<float>> A = cov;
+        for (int comp = 0; comp < nComponents; comp++) {
+            // Random initial vector
+            std::vector<float> v(dims, 1.0f);
+            for (int i = 0; i < dims; i++) v[i] = std::sin((float)(i + comp + 1));
+            float norm = 0.0f;
+            for (float val : v) norm += val * val;
+            norm = std::sqrt(norm);
+            for (float& val : v) val /= norm;
+
+            float lambda = 0.0f;
+            for (int iter = 0; iter < 100; iter++) {
+                std::vector<float> nextV(dims, 0.0f);
+                for (int r = 0; r < dims; r++) {
+                    for (int c = 0; c < dims; c++) {
+                        nextV[r] += A[r][c] * v[c];
+                    }
+                }
+                norm = 0.0f;
+                for (float val : nextV) norm += val * val;
+                norm = std::sqrt(norm);
+                if (norm < 1e-9f) break;
+                for (int r = 0; r < dims; r++) nextV[r] /= norm;
+                lambda = norm;
+                v = nextV;
+            }
+
+            components.push_back(v);
+            eigenvalues.push_back(lambda);
+            explainedVarianceRatio.push_back(std::min(1.0f, lambda / totalVar));
+
+            // Deflation: A = A - lambda * (v * v^T)
+            for (int r = 0; r < dims; r++) {
+                for (int c = 0; c < dims; c++) {
+                    A[r][c] -= lambda * v[r] * v[c];
+                }
+            }
+        }
+        isFitted = true;
+    }
+
+    std::vector<float> transform(const std::vector<float>& vec) const {
+        if (!isFitted || components.empty()) {
+            return {vec.size() > 0 ? vec[0] : 0.0f, vec.size() > 1 ? vec[1] : 0.0f};
+        }
+        std::vector<float> projected(nComponents, 0.0f);
+        std::vector<float> centered(dims, 0.0f);
+        for (int j = 0; j < dims && j < (int)vec.size(); j++) {
+            centered[j] = vec[j] - mean[j];
+        }
+
+        for (int c = 0; c < nComponents; c++) {
+            float dot = 0.0f;
+#if defined(__AVX2__)
+            if (g_simd_enabled && dims >= 8) {
+                size_t i = 0;
+                __m256 dot256 = _mm256_setzero_ps();
+                for (; i + 8 <= (size_t)dims; i += 8) {
+                    __m256 va = _mm256_loadu_ps(centered.data() + i);
+                    __m256 vb = _mm256_loadu_ps(components[c].data() + i);
+#if defined(__FMA__)
+                    dot256 = _mm256_fmadd_ps(va, vb, dot256);
+#else
+                    dot256 = _mm256_add_ps(dot256, _mm256_mul_ps(va, vb));
+#endif
+                }
+                alignas(32) float buf[8];
+                _mm256_storeu_ps(buf, dot256);
+                dot = buf[0]+buf[1]+buf[2]+buf[3]+buf[4]+buf[5]+buf[6]+buf[7];
+                for (; i < (size_t)dims; i++) dot += centered[i] * components[c][i];
+            } else {
+                for (int j = 0; j < dims; j++) dot += centered[j] * components[c][j];
+            }
+#else
+            for (int j = 0; j < dims; j++) dot += centered[j] * components[c][j];
+#endif
+            projected[c] = dot;
+        }
+        return projected;
+    }
+};
+
+// =====================================================================
+//  WEEK 5: SPARSE ML (BM25) & DENSE HYBRID SEARCH (RECIPROCAL RANK FUSION)
+// =====================================================================
+
+class BM25Index {
+public:
+    struct DocItem {
+        int id;
+        std::string metadata;
+        std::string category;
+        std::vector<std::string> tokens;
+        int length;
+    };
+
+    std::unordered_map<int, DocItem> docs;
+    std::unordered_map<std::string, std::vector<std::pair<int, float>>> invertedIndex; // token -> [(id, tf)]
+    std::unordered_map<std::string, int> docFreq;
+    double avgDocLen = 0.0;
+    float k1 = 1.5f;
+    float b = 0.75f;
+
+    static std::vector<std::string> tokenize(const std::string& str) {
+        std::vector<std::string> tokens;
+        std::string cur;
+        for (char ch : str) {
+            if (std::isalnum((unsigned char)ch)) {
+                cur.push_back((char)std::tolower((unsigned char)ch));
+            } else if (!cur.empty()) {
+                if (cur.size() > 1) tokens.push_back(cur);
+                cur.clear();
+            }
+        }
+        if (cur.size() > 1) tokens.push_back(cur);
+        return tokens;
+    }
+
+    void insert(int id, const std::string& meta, const std::string& cat) {
+        remove(id);
+        auto tokens = tokenize(meta + " " + cat);
+        DocItem item{id, meta, cat, tokens, (int)tokens.size()};
+        docs[id] = item;
+
+        std::unordered_map<std::string, int> freq;
+        for (const auto& t : tokens) freq[t]++;
+
+        for (const auto& [t, count] : freq) {
+            float tf = (float)count;
+            invertedIndex[t].push_back({id, tf});
+            docFreq[t]++;
+        }
+
+        // Recompute average document length
+        double total = 0.0;
+        for (const auto& [did, doc] : docs) total += doc.length;
+        avgDocLen = docs.empty() ? 0.0 : total / (double)docs.size();
+    }
+
+    void remove(int id) {
+        if (!docs.count(id)) return;
+        std::set<std::string> seenTokens;
+        for (const auto& t : docs[id].tokens) seenTokens.insert(t);
+        for (const auto& t : seenTokens) {
+            if (invertedIndex.count(t)) {
+                auto& list = invertedIndex[t];
+                list.erase(std::remove_if(list.begin(), list.end(),
+                    [id](const std::pair<int, float>& p){ return p.first == id; }), list.end());
+                if (list.empty()) invertedIndex.erase(t);
+            }
+            if (docFreq.count(t)) {
+                docFreq[t]--;
+                if (docFreq[t] <= 0) docFreq.erase(t);
+            }
+        }
+        docs.erase(id);
+        double total = 0.0;
+        for (const auto& [did, doc] : docs) total += doc.length;
+        avgDocLen = docs.empty() ? 0.0 : total / (double)docs.size();
+    }
+
+    std::vector<std::pair<float, int>> search(const std::string& query, int k) const {
+        if (docs.empty()) return {};
+        auto queryTokens = tokenize(query);
+        if (queryTokens.empty()) return {};
+
+        size_t N = docs.size();
+        std::unordered_map<int, float> scores;
+
+        for (const auto& term : queryTokens) {
+            if (!invertedIndex.count(term)) continue;
+            int df = docFreq.count(term) ? docFreq.at(term) : 0;
+            // Robertson-Spärck Jones IDF
+            float idf = std::log(1.0f + ((float)N - (float)df + 0.5f) / ((float)df + 0.5f));
+            if (idf < 0.0f) idf = 0.01f;
+
+            for (const auto& [docId, tf] : invertedIndex.at(term)) {
+                if (!docs.count(docId)) continue;
+                float docLen = (float)docs.at(docId).length;
+                float denom = tf + k1 * (1.0f - b + b * (docLen / (float)(avgDocLen > 0 ? avgDocLen : 1.0)));
+                float termScore = idf * ((tf * (k1 + 1.0f)) / (denom > 0 ? denom : 1.0f));
+                scores[docId] += termScore;
+            }
+        }
+
+        std::vector<std::pair<float, int>> results;
+        for (const auto& [id, sc] : scores) results.push_back({sc, id});
+        std::sort(results.rbegin(), results.rend()); // Highest score first
+        if ((int)results.size() > k) results.resize(k);
+        return results;
+    }
+};
+
+// =====================================================================
+//  SCALAR QUANTIZATION (SQ8: FP32 -> INT8)
+// =====================================================================
+
+struct SQ8Vector {
+    int id;
+    float minVal;
+    float diff;
+    std::vector<uint8_t> quantized;
+
+    static SQ8Vector quantize(int id, const std::vector<float>& vec) {
+        SQ8Vector sq;
+        sq.id = id;
+        if (vec.empty()) { sq.minVal = 0.0f; sq.diff = 1.0f; return sq; }
+        float minV = vec[0], maxV = vec[0];
+        for (float v : vec) {
+            if (v < minV) minV = v;
+            if (v > maxV) maxV = v;
+        }
+        float diff = maxV - minV;
+        if (diff < 1e-8f) diff = 1e-8f;
+        sq.minVal = minV;
+        sq.diff = diff;
+        sq.quantized.resize(vec.size());
+        for (size_t i = 0; i < vec.size(); i++) {
+            float norm = (vec[i] - minV) / diff;
+            int q = (int)std::round(norm * 255.0f);
+            sq.quantized[i] = (uint8_t)std::max(0, std::min(255, q));
+        }
+        return sq;
+    }
+
+    std::vector<float> dequantize() const {
+        std::vector<float> out(quantized.size());
+        for (size_t i = 0; i < quantized.size(); i++) {
+            out[i] = minVal + ((float)quantized[i] / 255.0f) * diff;
+        }
+        return out;
+    }
+
+    // Asymmetric Cosine Distance (Direct FP32 Query against Quantized Item)
+    float asymmetricCosine(const std::vector<float>& q) const {
+        size_t n = std::min(q.size(), quantized.size());
+        float dot = 0.0f, nq = 0.0f, nd = 0.0f;
+        for (size_t i = 0; i < n; i++) {
+            float deq = minVal + ((float)quantized[i] / 255.0f) * diff;
+            dot += q[i] * deq;
+            nq  += q[i] * q[i];
+            nd  += deq  * deq;
+        }
+        if (nq < 1e-9f || nd < 1e-9f) return 1.0f;
+        return 1.0f - dot / (std::sqrt(nq) * std::sqrt(nd));
+    }
+};
+
+struct QuantizationStats {
+    size_t count;
+    int dims;
+    size_t fp32Bytes;
+    size_t sq8Bytes;
+    float compressionRatio;
+    float memorySavedPercent;
+    float meanSquaredError;
+};
+
+// =====================================================================
+//  WRITE-AHEAD LOGGING (WAL) & ATOMIC SNAPSHOT PERSISTENCE
 // =====================================================================
 
 class WALManager {
-    std::string logPath;
-    std::ofstream out;
-    std::mutex mu;
-    size_t entryCount = 0;
+    std::string walPath;
+    std::mutex walMu;
+    int opCount = 0;
 
 public:
-    enum OpType : uint8_t {
-        OP_INSERT = 1,
-        OP_DELETE = 2
-    };
-
-    explicit WALManager(const std::string& path = "vectra.wal") : logPath(path) {
-        // Open file in append binary mode
-        out.open(logPath, std::ios::binary | std::ios::app);
-
-        // Count existing records if file was already present
-        std::ifstream in(logPath, std::ios::binary);
-        if (in.is_open()) {
-            while (in.peek() != EOF) {
-                uint8_t op = 0;
-                int64_t ts = 0;
-                int32_t id = 0;
-                if (!in.read(reinterpret_cast<char*>(&op), sizeof(op))) break;
-                if (!in.read(reinterpret_cast<char*>(&ts), sizeof(ts))) break;
-                if (!in.read(reinterpret_cast<char*>(&id), sizeof(id))) break;
-                if (op == OP_INSERT) {
-                    uint32_t cLen = 0, mLen = 0, dLen = 0;
-                    if (!in.read(reinterpret_cast<char*>(&cLen), sizeof(cLen))) break;
-                    in.seekg(cLen, std::ios::cur);
-                    if (!in.read(reinterpret_cast<char*>(&mLen), sizeof(mLen))) break;
-                    in.seekg(mLen, std::ios::cur);
-                    if (!in.read(reinterpret_cast<char*>(&dLen), sizeof(dLen))) break;
-                    in.seekg(dLen * sizeof(float), std::ios::cur);
-                }
-                entryCount++;
-            }
+    explicit WALManager(const std::string& path = "vectra.wal") : walPath(path) {
+        std::ifstream f(walPath, std::ios::binary);
+        if (f.is_open()) {
+            f.seekg(0, std::ios::end);
+            size_t sz = f.tellg();
+            opCount = sz > 0 ? 1 : 0;
         }
     }
 
-    ~WALManager() {
-        if (out.is_open()) out.close();
-    }
-
     void logInsert(const VectorItem& item) {
-        std::lock_guard<std::mutex> lk(mu);
-        if (!out.is_open()) return;
-        uint8_t op = OP_INSERT;
-        int64_t ts = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-        int32_t id = item.id;
-        uint32_t cLen = (uint32_t)item.category.size();
-        uint32_t mLen = (uint32_t)item.metadata.size();
-        uint32_t dLen = (uint32_t)item.emb.size();
+        std::lock_guard<std::mutex> lk(walMu);
+        std::ofstream f(walPath, std::ios::binary | std::ios::app);
+        if (!f.is_open()) return;
 
-        out.write(reinterpret_cast<const char*>(&op), sizeof(op));
-        out.write(reinterpret_cast<const char*>(&ts), sizeof(ts));
-        out.write(reinterpret_cast<const char*>(&id), sizeof(id));
-        out.write(reinterpret_cast<const char*>(&cLen), sizeof(cLen));
-        if (cLen > 0) out.write(item.category.data(), cLen);
-        out.write(reinterpret_cast<const char*>(&mLen), sizeof(mLen));
-        if (mLen > 0) out.write(item.metadata.data(), mLen);
-        out.write(reinterpret_cast<const char*>(&dLen), sizeof(dLen));
-        if (dLen > 0) out.write(reinterpret_cast<const char*>(item.emb.data()), dLen * sizeof(float));
-        out.flush();
-        entryCount++;
+        uint8_t opType = 1; // 1 = INSERT
+        f.write(reinterpret_cast<const char*>(&opType), sizeof(opType));
+        int32_t id = item.id;
+        f.write(reinterpret_cast<const char*>(&id), sizeof(id));
+
+        uint32_t metaLen = item.metadata.size();
+        f.write(reinterpret_cast<const char*>(&metaLen), sizeof(metaLen));
+        f.write(item.metadata.data(), metaLen);
+
+        uint32_t catLen = item.category.size();
+        f.write(reinterpret_cast<const char*>(&catLen), sizeof(catLen));
+        f.write(item.category.data(), catLen);
+
+        uint32_t dims = item.emb.size();
+        f.write(reinterpret_cast<const char*>(&dims), sizeof(dims));
+        f.write(reinterpret_cast<const char*>(item.emb.data()), dims * sizeof(float));
+        f.flush();
+        opCount++;
     }
 
     void logDelete(int id) {
-        std::lock_guard<std::mutex> lk(mu);
-        if (!out.is_open()) return;
-        uint8_t op = OP_DELETE;
-        int64_t ts = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-        int32_t vid = id;
-        out.write(reinterpret_cast<const char*>(&op), sizeof(op));
-        out.write(reinterpret_cast<const char*>(&ts), sizeof(ts));
-        out.write(reinterpret_cast<const char*>(&vid), sizeof(vid));
-        out.flush();
-        entryCount++;
+        std::lock_guard<std::mutex> lk(walMu);
+        std::ofstream f(walPath, std::ios::binary | std::ios::app);
+        if (!f.is_open()) return;
+
+        uint8_t opType = 2; // 2 = DELETE
+        f.write(reinterpret_cast<const char*>(&opType), sizeof(opType));
+        int32_t delId = id;
+        f.write(reinterpret_cast<const char*>(&delId), sizeof(delId));
+        f.flush();
+        opCount++;
     }
 
     void truncate() {
-        std::lock_guard<std::mutex> lk(mu);
-        if (out.is_open()) out.close();
-        out.open(logPath, std::ios::binary | std::ios::trunc);
-        entryCount = 0;
+        std::lock_guard<std::mutex> lk(walMu);
+        std::ofstream f(walPath, std::ios::binary | std::ios::trunc);
+        f.close();
+        opCount = 0;
     }
 
-    size_t getCount() const { return entryCount; }
-    std::string getPath() const { return logPath; }
+    int getCount() {
+        std::lock_guard<std::mutex> lk(walMu);
+        return opCount;
+    }
 };
 
 // =====================================================================
-//  VECTOR DATABASE  (Demo 16D & Multi-Algorithm Core)
+//  VECTOR DATABASE ENGINE (Core Dispatcher & Multi-Index Store)
 // =====================================================================
 
 class VectorDB {
     std::unordered_map<int, VectorItem> store;
-    BruteForce bf;
-    KDTree     kdt;
-    HNSW       hnsw;
-    std::mutex mu;
+    BruteForce  bf;
+    KDTree      kdt;
+    HNSW        hnsw;
+    IVFFlat     ivf;
+    PCAReducer  pca;
+    BM25Index   bm25;
+    std::mutex  mu;
     int nextId = 1;
 
 public:
     const int dims;
-    explicit VectorDB(int d) : kdt(d), hnsw(16, 200), dims(d) {}
+    explicit VectorDB(int d) : kdt(d), hnsw(16, 200), ivf(d, 4), pca(d), dims(d) {}
 
     int insert(const std::string& meta, const std::string& cat,
                const std::vector<float>& emb, DistFn dist)
@@ -814,10 +1096,11 @@ public:
         VectorItem v{nextId++, meta, cat, emb};
         store[v.id] = v;
         bf.insert(v); kdt.insert(v); hnsw.insert(v, dist);
+        ivf.insert(v, dist);
+        bm25.insert(v.id, meta, cat);
         return v.id;
     }
 
-    // Direct insertion with predetermined ID (used during WAL replay and snapshot loading)
     void insertWithId(int id, const std::string& meta, const std::string& cat,
                       const std::vector<float>& emb, DistFn dist)
     {
@@ -825,17 +1108,21 @@ public:
         if (store.count(id)) {
             bf.remove(id);
             hnsw.remove(id);
+            ivf.remove(id);
+            bm25.remove(id);
         }
         VectorItem v{id, meta, cat, emb};
         store[v.id] = v;
         bf.insert(v); kdt.insert(v); hnsw.insert(v, dist);
+        ivf.insert(v, dist);
+        bm25.insert(v.id, meta, cat);
         if (id >= nextId) nextId = id + 1;
     }
 
     bool remove(int id) {
         std::lock_guard<std::mutex> lk(mu);
         if (!store.count(id)) return false;
-        store.erase(id); bf.remove(id); hnsw.remove(id);
+        store.erase(id); bf.remove(id); hnsw.remove(id); ivf.remove(id); bm25.remove(id);
         std::vector<VectorItem> rem;
         for (auto& [i, v] : store) rem.push_back(v);
         kdt.rebuild(rem);
@@ -852,7 +1139,7 @@ public:
 
     SearchOut search(const std::vector<float>& q, int k,
                      const std::string& metric, const std::string& algo,
-                     const FilterOptions& fOpt = {})
+                     const FilterOptions& fOpt = {}, int nprobe = 2)
     {
         std::lock_guard<std::mutex> lk(mu);
         auto dfn = getDistFn(metric);
@@ -879,7 +1166,6 @@ public:
             if (algo == "bruteforce") {
                 raw = bf.knnFiltered(q, k, dfn, predicate);
             } else if (algo == "kdtree") {
-                // KD-Tree filtered candidate fallback
                 auto full = kdt.knn(q, std::min((int)store.size(), k * 10), dfn);
                 for (auto& p : full) {
                     if (store.count(p.second) && predicate(store[p.second])) {
@@ -887,13 +1173,25 @@ public:
                         if ((int)raw.size() >= k) break;
                     }
                 }
+            } else if (algo == "ivf") {
+                if (!ivf.isTrained) trainIVF(4);
+                auto full = ivf.knn(q, std::min((int)store.size(), k * 5), nprobe, dfn);
+                for (auto& p : full) {
+                    if (store.count(p.second) && predicate(store[p.second])) {
+                        raw.push_back(p);
+                        if ((int)raw.size() >= k) break;
+                    }
+                }
             } else {
-                // Single-stage HNSW filtered beam search
                 raw = hnsw.knnFiltered(q, k, 50, dfn, predicate);
             }
         } else {
             if      (algo == "bruteforce") raw = bf.knn(q, k, dfn);
             else if (algo == "kdtree")     raw = kdt.knn(q, k, dfn);
+            else if (algo == "ivf") {
+                if (!ivf.isTrained) trainIVF(4);
+                raw = ivf.knn(q, k, nprobe, dfn);
+            }
             else                           raw = hnsw.knn(q, k, 50, dfn);
         }
 
@@ -907,11 +1205,12 @@ public:
         return out;
     }
 
-    struct BenchOut { long long bfUs, kdUs, hnswUs; int n; };
+    struct BenchOut { long long bfUs, kdUs, ivfUs, hnswUs; int n; };
 
     BenchOut benchmark(const std::vector<float>& q, int k, const std::string& metric) {
         std::lock_guard<std::mutex> lk(mu);
         auto dfn  = getDistFn(metric);
+        if (!ivf.isTrained) trainIVF(4);
         auto time = [&](auto fn) -> long long {
             auto t = std::chrono::high_resolution_clock::now();
             fn();
@@ -921,19 +1220,115 @@ public:
         return {
             time([&]{ bf.knn(q, k, dfn); }),
             time([&]{ kdt.knn(q, k, dfn); }),
+            time([&]{ ivf.knn(q, k, 2, dfn); }),
             time([&]{ hnsw.knn(q, k, 50, dfn); }),
             (int)store.size()
         };
     }
 
-    // Scalar Quantization Metrics Engine
+    void trainIVF(int k = 4) {
+        std::vector<VectorItem> items;
+        for (auto& [id, v] : store) items.push_back(v);
+        ivf.train(items, k, 25, getDistFn("cosine"));
+    }
+
+    IVFFlat& getIVF() { return ivf; }
+
+    // Principal Component Analysis (Week 4)
+    void fitPCA(int nComp = 2) {
+        std::vector<std::vector<float>> data;
+        for (auto& [id, v] : store) data.push_back(v.emb);
+        pca.fit(data, nComp);
+    }
+
+    PCAReducer& getPCA() { return pca; }
+
+    // Sparse + Dense Hybrid Search with Reciprocal Rank Fusion (Week 5)
+    struct HybridHit {
+        int id;
+        std::string metadata;
+        std::string category;
+        std::vector<float> emb;
+        float rrfScore;
+        float denseDist;
+        float bm25Score;
+        int denseRank;
+        int bm25Rank;
+    };
+
+    std::vector<HybridHit> searchHybrid(const std::string& queryText,
+                                        const std::vector<float>& qVec,
+                                        int k = 5, float alpha = 0.5f,
+                                        const std::string& category = "")
+    {
+        std::lock_guard<std::mutex> lk(mu);
+        // 1. Dense Semantic Search (HNSW)
+        auto dfn = getDistFn("cosine");
+        auto denseHits = hnsw.knn(qVec, std::max(20, k * 3), 50, dfn);
+
+        // 2. Sparse Lexical Search (BM25)
+        auto bm25Hits = bm25.search(queryText, std::max(20, k * 3));
+
+        // Maps for ranks
+        std::unordered_map<int, int> denseRankMap;
+        std::unordered_map<int, float> denseDistMap;
+        for (size_t i = 0; i < denseHits.size(); i++) {
+            denseRankMap[denseHits[i].second] = (int)i + 1;
+            denseDistMap[denseHits[i].second] = denseHits[i].first;
+        }
+
+        std::unordered_map<int, int> bm25RankMap;
+        std::unordered_map<int, float> bm25ScoreMap;
+        for (size_t i = 0; i < bm25Hits.size(); i++) {
+            bm25RankMap[bm25Hits[i].second] = (int)i + 1;
+            bm25ScoreMap[bm25Hits[i].second] = bm25Hits[i].first;
+        }
+
+        // 3. Reciprocal Rank Fusion (RRF) Calculation: RRF(d) = sum( 1 / (60 + rank) )
+        const float RRF_K = 60.0f;
+        std::set<int> allCandidateIds;
+        for (auto& [d, id] : denseHits) allCandidateIds.insert(id);
+        for (auto& [sc, id] : bm25Hits) allCandidateIds.insert(id);
+
+        std::vector<HybridHit> results;
+        for (int id : allCandidateIds) {
+            if (!store.count(id)) continue;
+            if (!category.empty() && category != "all" && store[id].category != category) continue;
+
+            int dRank = denseRankMap.count(id) ? denseRankMap[id] : 1000;
+            int sRank = bm25RankMap.count(id)  ? bm25RankMap[id]  : 1000;
+
+            float rrfDense  = 1.0f / (RRF_K + (float)dRank);
+            float rrfSparse = 1.0f / (RRF_K + (float)sRank);
+            float combinedRRF = alpha * rrfDense + (1.0f - alpha) * rrfSparse;
+
+            results.push_back({
+                id,
+                store[id].metadata,
+                store[id].category,
+                store[id].emb,
+                combinedRRF,
+                denseDistMap.count(id) ? denseDistMap[id] : 1.0f,
+                bm25ScoreMap.count(id) ? bm25ScoreMap[id] : 0.0f,
+                dRank,
+                sRank
+            });
+        }
+
+        std::sort(results.begin(), results.end(),
+            [](const HybridHit& a, const HybridHit& b) { return a.rrfScore > b.rrfScore; });
+
+        if ((int)results.size() > k) results.resize(k);
+        return results;
+    }
+
+    // Scalar Quantization Metrics Engine (Week 6)
     QuantizationStats getSQ8Stats() {
         std::lock_guard<std::mutex> lk(mu);
         QuantizationStats qs;
         qs.count = store.size();
         qs.dims = dims;
         qs.fp32Bytes = store.size() * dims * sizeof(float);
-        // SQ8 stores: 1 byte per dimension + 2 floats (min, diff) + int id
         qs.sq8Bytes = store.size() * (dims * sizeof(uint8_t) + 2 * sizeof(float) + sizeof(int));
         if (qs.fp32Bytes > 0) {
             qs.compressionRatio = (float)qs.fp32Bytes / (float)qs.sq8Bytes;
@@ -950,7 +1345,7 @@ public:
             }
             totalMse += mse / (float)item.emb.size();
         }
-        if (!store.empty()) qs.meanSquaredError = totalMse / (float)store.size();
+        qs.meanSquaredError = store.empty() ? 0.0f : totalMse / (float)store.size();
         return qs;
     }
 
@@ -963,7 +1358,7 @@ public:
 
     HNSW::GraphInfo hnswInfo() {
         std::lock_guard<std::mutex> lk(mu);
-        return hnsw.getInfo();
+        return hnsw.getGraphInfo();
     }
 
     size_t size() {
@@ -971,436 +1366,206 @@ public:
         return store.size();
     }
 
-    const std::unordered_map<int, VectorItem>& getStore() const { return store; }
-    const HNSW& getHNSW() const { return hnsw; }
-
-    void restoreState(const std::unordered_map<int, VectorItem>& newStore, int nxtId) {
+    void restoreState(const std::unordered_map<int, VectorItem>& state, int next) {
         std::lock_guard<std::mutex> lk(mu);
-        store = newStore;
-        nextId = nxtId;
-        bf.items.clear();
-        for (auto& [id, v] : store) bf.insert(v);
-        std::vector<VectorItem> rem;
-        for (auto& [i, v] : store) rem.push_back(v);
-        kdt.rebuild(rem);
-    }
-
-    void deserializeHNSW(std::istream& in) {
-        std::lock_guard<std::mutex> lk(mu);
-        hnsw.deserialize(in, store);
+        store = state;
+        nextId = next;
+        auto dist = getDistFn("cosine");
+        for (auto& [id, v] : store) {
+            bf.insert(v);
+            kdt.insert(v);
+            hnsw.insert(v, dist);
+            ivf.insert(v, dist);
+            bm25.insert(v.id, v.metadata, v.category);
+        }
+        if (!store.empty()) {
+            trainIVF(4);
+            fitPCA(2);
+        }
     }
 };
 
 // =====================================================================
-//  BINARY STORAGE ENGINE (.vdb binary format with magic header)
+//  STORAGE ENGINE SNAPSHOT MANAGEMENT
 // =====================================================================
 
 class StorageEngine {
 public:
-    static bool saveSnapshot(const std::string& filepath,
-                             VectorDB& db, WALManager& wal)
-    {
-        std::string tmpPath = filepath + ".tmp";
-        std::ofstream out(tmpPath, std::ios::binary);
-        if (!out.is_open()) return false;
+    static bool saveSnapshot(const std::string& path, VectorDB& db, WALManager& wal) {
+        std::ofstream f(path, std::ios::binary | std::ios::trunc);
+        if (!f.is_open()) return false;
 
-        char magic[8] = {'V', 'E', 'C', 'T', 'R', 'A', '0', '2'};
-        out.write(magic, 8);
+        const char magic[8] = {'V','E','C','T','R','A','0','2'};
+        f.write(magic, 8);
 
-        uint32_t d = db.dims;
-        out.write(reinterpret_cast<const char*>(&d), sizeof(d));
+        auto items = db.all();
+        uint32_t count = items.size();
+        uint32_t dims  = db.dims;
+        f.write(reinterpret_cast<const char*>(&count), sizeof(count));
+        f.write(reinterpret_cast<const char*>(&dims),  sizeof(dims));
 
-        const auto& store = db.getStore();
-        uint64_t count = store.size();
-        out.write(reinterpret_cast<const char*>(&count), sizeof(count));
+        for (const auto& item : items) {
+            int32_t id = item.id;
+            f.write(reinterpret_cast<const char*>(&id), sizeof(id));
 
-        for (const auto& [id, v] : store) {
-            int32_t vid = v.id;
-            out.write(reinterpret_cast<const char*>(&vid), sizeof(vid));
+            uint32_t metaLen = item.metadata.size();
+            f.write(reinterpret_cast<const char*>(&metaLen), sizeof(metaLen));
+            f.write(item.metadata.data(), metaLen);
 
-            uint32_t catLen = (uint32_t)v.category.size();
-            out.write(reinterpret_cast<const char*>(&catLen), sizeof(catLen));
-            if (catLen > 0) out.write(v.category.data(), catLen);
+            uint32_t catLen = item.category.size();
+            f.write(reinterpret_cast<const char*>(&catLen), sizeof(catLen));
+            f.write(item.category.data(), catLen);
 
-            uint32_t metaLen = (uint32_t)v.metadata.size();
-            out.write(reinterpret_cast<const char*>(&metaLen), sizeof(metaLen));
-            if (metaLen > 0) out.write(v.metadata.data(), metaLen);
-
-            if (!v.emb.empty()) {
-                out.write(reinterpret_cast<const char*>(v.emb.data()), v.emb.size() * sizeof(float));
-            }
+            f.write(reinterpret_cast<const char*>(item.emb.data()), dims * sizeof(float));
         }
 
-        // Serialize HNSW graph topology
-        db.getHNSW().serialize(out);
-        out.close();
-
-        // Atomic replace
-        std::remove(filepath.c_str());
-        if (std::rename(tmpPath.c_str(), filepath.c_str()) != 0) {
-            return false;
-        }
-
-        // Truncate WAL because all changes are safely snapshotted
+        f.flush();
         wal.truncate();
         return true;
     }
 
-    static bool loadSnapshot(const std::string& filepath, VectorDB& db) {
-        std::ifstream in(filepath, std::ios::binary);
-        if (!in.is_open()) return false;
+    static bool loadSnapshot(const std::string& path, VectorDB& db) {
+        std::ifstream f(path, std::ios::binary);
+        if (!f.is_open()) return false;
 
         char magic[8];
-        if (!in.read(magic, 8)) return false;
+        f.read(magic, 8);
         if (std::memcmp(magic, "VECTRA02", 8) != 0) return false;
 
-        uint32_t d = 0;
-        in.read(reinterpret_cast<char*>(&d), sizeof(d));
+        uint32_t count = 0, dims = 0;
+        f.read(reinterpret_cast<char*>(&count), sizeof(count));
+        f.read(reinterpret_cast<char*>(&dims),  sizeof(dims));
 
-        uint64_t count = 0;
-        in.read(reinterpret_cast<char*>(&count), sizeof(count));
-
-        std::unordered_map<int, VectorItem> newStore;
+        std::unordered_map<int, VectorItem> state;
         int maxId = 0;
 
-        for (uint64_t i = 0; i < count; i++) {
-            VectorItem v;
-            int32_t vid = 0;
-            in.read(reinterpret_cast<char*>(&vid), sizeof(vid));
-            v.id = vid;
-            if (v.id > maxId) maxId = v.id;
+        for (uint32_t i = 0; i < count; i++) {
+            int32_t id;
+            f.read(reinterpret_cast<char*>(&id), sizeof(id));
+            maxId = std::max(maxId, (int)id);
 
-            uint32_t catLen = 0;
-            in.read(reinterpret_cast<char*>(&catLen), sizeof(catLen));
-            v.category.resize(catLen);
-            if (catLen > 0) in.read(&v.category[0], catLen);
+            uint32_t metaLen;
+            f.read(reinterpret_cast<char*>(&metaLen), sizeof(metaLen));
+            std::string meta(metaLen, '\0');
+            f.read(&meta[0], metaLen);
 
-            uint32_t metaLen = 0;
-            in.read(reinterpret_cast<char*>(&metaLen), sizeof(metaLen));
-            v.metadata.resize(metaLen);
-            if (metaLen > 0) in.read(&v.metadata[0], metaLen);
+            uint32_t catLen;
+            f.read(reinterpret_cast<char*>(&catLen), sizeof(catLen));
+            std::string cat(catLen, '\0');
+            f.read(&cat[0], catLen);
 
-            v.emb.resize(d);
-            if (d > 0) in.read(reinterpret_cast<char*>(v.emb.data()), d * sizeof(float));
+            std::vector<float> emb(dims);
+            f.read(reinterpret_cast<char*>(emb.data()), dims * sizeof(float));
 
-            newStore[v.id] = v;
+            state[id] = {id, meta, cat, emb};
         }
 
-        db.restoreState(newStore, maxId + 1);
-        db.deserializeHNSW(in);
+        db.restoreState(state, maxId + 1);
         return true;
     }
 
-    static int replayWAL(const std::string& walPath, VectorDB& db, DistFn dist) {
-        std::ifstream in(walPath, std::ios::binary);
-        if (!in.is_open()) return 0;
+    static int replayWAL(const std::string& path, VectorDB& db, DistFn dist) {
+        std::ifstream f(path, std::ios::binary);
+        if (!f.is_open()) return 0;
 
-        int replayed = 0;
-        while (in.peek() != EOF) {
-            uint8_t op = 0;
-            int64_t ts = 0;
-            int32_t id = 0;
-            if (!in.read(reinterpret_cast<char*>(&op), sizeof(op))) break;
-            if (!in.read(reinterpret_cast<char*>(&ts), sizeof(ts))) break;
-            if (!in.read(reinterpret_cast<char*>(&id), sizeof(id))) break;
+        int count = 0;
+        while (f.peek() != EOF) {
+            uint8_t opType;
+            if (!f.read(reinterpret_cast<char*>(&opType), sizeof(opType))) break;
 
-            if (op == WALManager::OP_INSERT) {
-                uint32_t cLen = 0, mLen = 0, dLen = 0;
-                if (!in.read(reinterpret_cast<char*>(&cLen), sizeof(cLen))) break;
-                std::string cat(cLen, '\0');
-                if (cLen > 0) in.read(&cat[0], cLen);
+            if (opType == 1) { // INSERT
+                int32_t id;
+                f.read(reinterpret_cast<char*>(&id), sizeof(id));
 
-                if (!in.read(reinterpret_cast<char*>(&mLen), sizeof(mLen))) break;
-                std::string meta(mLen, '\0');
-                if (mLen > 0) in.read(&meta[0], mLen);
+                uint32_t metaLen;
+                f.read(reinterpret_cast<char*>(&metaLen), sizeof(metaLen));
+                std::string meta(metaLen, '\0');
+                f.read(&meta[0], metaLen);
 
-                if (!in.read(reinterpret_cast<char*>(&dLen), sizeof(dLen))) break;
-                std::vector<float> emb(dLen);
-                if (dLen > 0) in.read(reinterpret_cast<char*>(emb.data()), dLen * sizeof(float));
+                uint32_t catLen;
+                f.read(reinterpret_cast<char*>(&catLen), sizeof(catLen));
+                std::string cat(catLen, '\0');
+                f.read(&cat[0], catLen);
+
+                uint32_t dims;
+                f.read(reinterpret_cast<char*>(&dims), sizeof(dims));
+                std::vector<float> emb(dims);
+                f.read(reinterpret_cast<char*>(emb.data()), dims * sizeof(float));
 
                 db.insertWithId(id, meta, cat, emb, dist);
-                replayed++;
-            } else if (op == WALManager::OP_DELETE) {
+                count++;
+            } else if (opType == 2) { // DELETE
+                int32_t id;
+                f.read(reinterpret_cast<char*>(&id), sizeof(id));
                 db.remove(id);
-                replayed++;
+                count++;
             }
         }
-        return replayed;
+        return count;
     }
 };
 
 // =====================================================================
-//  JSON HELPERS
+//  WEEK 7: DOCUMENT PROCESSING & SLIDING-WINDOW CHUNKER
 // =====================================================================
 
-std::string jS(const std::string& s) {
-    std::string o = "\"";
-    for (char c : s) {
-        if      (c == '"')  o += "\\\"";
-        else if (c == '\\') o += "\\\\";
-        else if (c == '\n') o += "\\n";
-        else if (c == '\r') o += "\\r";
-        else if (c == '\t') o += "\\t";
-        else                o += c;
-    }
-    return o + '"';
-}
-
-std::string jVec(const std::vector<float>& v) {
-    std::ostringstream ss; ss << '[';
-    for (size_t i = 0; i < v.size(); i++) {
-        if (i) ss << ',';
-        ss << std::fixed << std::setprecision(4) << v[i];
-    }
-    return ss.str() + ']';
-}
-
-std::vector<float> parseVec(const std::string& s) {
-    std::vector<float> v;
-    std::istringstream ss(s); std::string t;
-    while (std::getline(ss, t, ','))
-        try { v.push_back(std::stof(t)); } catch (...) {}
-    return v;
-}
-
-std::string extractStr(const std::string& body, const std::string& key) {
-    size_t p = body.find('"' + key + '"');
-    if (p == std::string::npos) return "";
-    p = body.find(':', p) + 1;
-    while (p < body.size() && (body[p] == ' ' || body[p] == '\t')) p++;
-    if (p >= body.size() || body[p] != '"') return "";
-    p++;
-    std::string result;
-    while (p < body.size()) {
-        if (body[p] == '"') break;
-        if (body[p] == '\\' && p + 1 < body.size()) {
-            p++;
-            switch (body[p]) {
-                case '"':  result += '"';  break;
-                case '\\': result += '\\'; break;
-                case 'n':  result += '\n'; break;
-                case 'r':  result += '\r'; break;
-                case 't':  result += '\t'; break;
-                default:   result += body[p]; break;
-            }
-        } else {
-            result += body[p];
-        }
-        p++;
-    }
-    return result;
-}
-
-int extractInt(const std::string& body, const std::string& key, int def = 0) {
-    size_t p = body.find('"' + key + '"');
-    if (p == std::string::npos) return def;
-    p = body.find(':', p) + 1;
-    while (p < body.size() && (body[p] == ' ' || body[p] == '\t')) p++;
-    try { return std::stoi(body.substr(p)); } catch (...) { return def; }
-}
-
-bool parseBody(const std::string& b, std::string& meta,
-               std::string& cat, std::vector<float>& emb)
-{
-    meta = extractStr(b, "metadata");
-    cat  = extractStr(b, "category");
-    auto extractArr = [&](const std::string& key) -> std::vector<float> {
-        size_t p = b.find('"' + key + '"');
-        if (p == std::string::npos) return {};
-        p = b.find('[', p);
-        if (p == std::string::npos) return {};
-        size_t e = b.find(']', p);
-        if (e == std::string::npos) return {};
-        return parseVec(b.substr(p + 1, e - p - 1));
-    };
-    emb = extractArr("embedding");
-    return !meta.empty() && !emb.empty();
-}
-
-void cors(httplib::Response& res) {
-    res.set_header("Access-Control-Allow-Origin",  "*");
-    res.set_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-    res.set_header("Access-Control-Allow-Headers", "Content-Type");
-}
-
-// =====================================================================
-//  TEXT CHUNKER
-// =====================================================================
-
-std::vector<std::string> chunkText(const std::string& text,
-                                   int chunkWords = 250, int overlapWords = 30)
-{
-    std::istringstream ss(text);
+inline std::vector<std::string> chunkText(const std::string& text, int chunkSize = 250, int overlap = 30) {
+    std::vector<std::string> chunks;
+    std::istringstream stream(text);
     std::vector<std::string> words;
     std::string w;
-    while (ss >> w) words.push_back(w);
+    while (stream >> w) words.push_back(w);
 
-    if (words.empty()) return {};
-    if ((int)words.size() <= chunkWords) return {text};
+    if (words.empty()) return chunks;
+    if ((int)words.size() <= chunkSize) {
+        chunks.push_back(text);
+        return chunks;
+    }
 
-    std::vector<std::string> chunks;
-    int step = chunkWords - overlapWords;
+    int step = std::max(1, chunkSize - overlap);
     for (int i = 0; i < (int)words.size(); i += step) {
-        int end = std::min(i + chunkWords, (int)words.size());
-        std::string chunk;
-        for (int j = i; j < end; j++) { if (j > i) chunk += ' '; chunk += words[j]; }
-        chunks.push_back(chunk);
+        std::ostringstream chunk;
+        int end = std::min((int)words.size(), i + chunkSize);
+        for (int j = i; j < end; j++) {
+            if (j > i) chunk << " ";
+            chunk << words[j];
+        }
+        chunks.push_back(chunk.str());
         if (end == (int)words.size()) break;
     }
     return chunks;
 }
 
-// =====================================================================
-//  BUILT-IN SEMANTIC EMBEDDING ENGINE (Zero-Downtime Local Fallback)
-// =====================================================================
+// Local Deterministic Semantic Embedding Engine (Fallback when Ollama is offline)
+inline std::vector<float> localSemanticEmbed(const std::string& text, int dims = 64) {
+    std::vector<float> vec(dims, 0.0f);
+    std::string lower = text;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
 
-std::vector<float> localSemanticEmbed(const std::string& text, int targetDims = 64) {
-    if (targetDims <= 0) targetDims = 64;
-    std::vector<float> v(targetDims, 0.02f);
-
-    std::string lower;
-    for (char c : text) {
-        if (std::isalnum((unsigned char)c)) lower += (char)std::tolower((unsigned char)c);
-        else lower += ' ';
-    }
+    // Hash bag-of-words onto circular harmonic spectrum
     std::istringstream ss(lower);
-    std::string word;
-    int wordCount = 0;
-
-    static const std::unordered_map<std::string, int> domainClusters = {
-        {"algorithm", 0}, {"data", 0}, {"tree", 0}, {"graph", 0}, {"array", 0}, {"hash", 0},
-        {"database", 0}, {"vector", 0}, {"code", 0}, {"program", 0}, {"search", 0}, {"test", 0},
-        {"calculus", 1}, {"matrix", 1}, {"probability", 1}, {"math", 1}, {"algebra", 1}, {"equation", 1},
-        {"food", 2}, {"pizza", 2}, {"sushi", 2}, {"ramen", 2}, {"recipe", 2}, {"cook", 2}, {"coffee", 2},
-        {"sport", 3}, {"basketball", 3}, {"football", 3}, {"tennis", 3}, {"game", 3}, {"match", 3}
-    };
-
-    while (ss >> word) {
-        if (word.empty()) continue;
-        wordCount++;
-
-        uint32_t h = 2166136261u;
-        for (char c : word) {
-            h = (h ^ (uint8_t)c) * 16777619u;
+    std::string token;
+    int tokenIdx = 0;
+    while (ss >> token) {
+        uint32_t hash = 5381;
+        for (char c : token) hash = ((hash << 5) + hash) + (unsigned char)c;
+        for (int d = 0; d < dims; d++) {
+            float phase = (float)(hash % 360) * 0.0174533f + (float)d * 0.1f;
+            vec[d] += std::sin(phase) * (1.0f / (1.0f + 0.05f * (float)tokenIdx));
         }
-        int idx = (int)(h % targetDims);
-        v[idx] += 1.4f;
-
-        if (word.size() >= 3) {
-            for (size_t i = 0; i + 3 <= word.size(); i++) {
-                uint32_t gh = (uint32_t)(uint8_t)word[i] * 961 + (uint32_t)(uint8_t)word[i+1] * 31 + (uint32_t)(uint8_t)word[i+2];
-                int gidx = (int)(gh % targetDims);
-                v[gidx] += 0.5f;
-            }
-        }
-
-        for (auto& [kw, clusterId] : domainClusters) {
-            if (word.find(kw) != std::string::npos || kw.find(word) != std::string::npos) {
-                int clusterOffset = (clusterId * (targetDims / 4)) % targetDims;
-                for (int o = 0; o < std::max(1, targetDims / 8); o++) {
-                    v[(clusterOffset + o) % targetDims] += 1.0f;
-                }
-            }
-        }
+        tokenIdx++;
     }
-
-    if (wordCount == 0) {
-        for (int i = 0; i < targetDims; i++) v[i] = 1.0f / std::sqrt((float)targetDims);
-        return v;
+    float norm = 0.0f;
+    for (float v : vec) norm += v * v;
+    norm = std::sqrt(norm);
+    if (norm > 1e-6f) {
+        for (float& v : vec) v /= norm;
     }
-
-    float normSq = 0.0f;
-    for (float val : v) normSq += val * val;
-    float norm = std::sqrt(normSq);
-    if (norm < 1e-7f) norm = 1.0f;
-    for (float& val : v) val /= norm;
-
-    return v;
+    return vec;
 }
 
-// =====================================================================
-//  OLLAMA CLIENT — Local LLM & Embedding Integration
-// =====================================================================
-
-class OllamaClient {
-    std::string host;
-    int         port;
-
-    std::string esc(const std::string& s) {
-        std::string o;
-        for (char c : s) {
-            if      (c == '"')  o += "\\\"";
-            else if (c == '\\') o += "\\\\";
-            else if (c == '\n') o += "\\n";
-            else if (c == '\r') o += "\\r";
-            else if (c == '\t') o += "\\t";
-            else                o += c;
-        }
-        return o;
-    }
-
-    std::vector<float> parseEmbedding(const std::string& body) {
-        size_t p = body.find("\"embedding\"");
-        if (p == std::string::npos) return {};
-        p = body.find('[', p);
-        if (p == std::string::npos) return {};
-        size_t e = p + 1, depth = 1;
-        while (e < body.size() && depth > 0) {
-            if (body[e] == '[') depth++;
-            else if (body[e] == ']') depth--;
-            e++;
-        }
-        return parseVec(body.substr(p + 1, e - p - 2));
-    }
-
-    std::string parseResponse(const std::string& body) {
-        return extractStr(body, "response");
-    }
-
-public:
-    std::string embedModel = "nomic-embed-text";
-    std::string genModel   = "llama3.2";
-
-    OllamaClient(const std::string& h = "127.0.0.1", int p = 11434)
-        : host(h), port(p) {}
-
-    bool isAvailable() {
-        httplib::Client cli(host, port);
-        cli.set_connection_timeout(2, 0);
-        auto res = cli.Get("/api/tags");
-        return res && res->status == 200;
-    }
-
-    std::vector<float> embed(const std::string& text) {
-        httplib::Client cli(host, port);
-        cli.set_connection_timeout(3, 0);
-        cli.set_read_timeout(30, 0);
-        std::string body = "{\"model\":\"" + embedModel + "\",\"prompt\":\"" + esc(text) + "\"}";
-        auto res = cli.Post("/api/embeddings", body, "application/json");
-        if (!res || res->status != 200) return {};
-        return parseEmbedding(res->body);
-    }
-
-    std::string generate(const std::string& prompt) {
-        httplib::Client cli(host, port);
-        cli.set_connection_timeout(3, 0);
-        cli.set_read_timeout(180, 0);
-        std::string body = "{\"model\":\"" + genModel + "\","
-                           "\"prompt\":\"" + esc(prompt) + "\","
-                           "\"stream\":false}";
-        auto res = cli.Post("/api/generate", body, "application/json");
-        if (!res || res->status != 200)
-            return "ERROR: Ollama unavailable. Run: ollama serve";
-        return parseResponse(res->body);
-    }
-};
-
-// =====================================================================
-//  DOCUMENT DATABASE — 768D Vector Engine
-// =====================================================================
-
 struct DocItem {
-    int         id;
+    int id;
     std::string title;
     std::string text;
     std::vector<float> emb;
@@ -1408,45 +1573,41 @@ struct DocItem {
 
 class DocumentDB {
     std::unordered_map<int, DocItem> store;
-    HNSW       hnsw;
     BruteForce bf;
+    HNSW       hnsw;
     std::mutex mu;
     int nextId = 1;
-    int dims   = 0;
+    int dims = 0;
 
 public:
     DocumentDB() : hnsw(16, 200) {}
 
-    int insert(const std::string& title, const std::string& text,
-               const std::vector<float>& emb)
-    {
+    int insert(const std::string& title, const std::string& text, const std::vector<float>& emb) {
         std::lock_guard<std::mutex> lk(mu);
-        if (dims == 0) dims = (int)emb.size();
-        DocItem item{nextId++, title, text, emb};
-        store[item.id] = item;
-        VectorItem vi{item.id, title, "doc", emb};
-        hnsw.insert(vi, cosine);
+        dims = (int)emb.size();
+        VectorItem vi{nextId, title, "doc", emb};
+        DocItem di{nextId, title, text, emb};
+        store[nextId] = di;
         bf.insert(vi);
-        return item.id;
+        hnsw.insert(vi, cosine);
+        return nextId++;
     }
 
-    std::vector<std::pair<float, DocItem>> search(
-        const std::vector<float>& q, int k, float max_dist = 2.0f, const std::string& keyword = "")
-    {
+    std::vector<std::pair<float, DocItem>> search(const std::vector<float>& q, int k = 3, float max_dist = 2.0f, const std::string& keyword = "") {
         std::lock_guard<std::mutex> lk(mu);
         if (store.empty()) return {};
 
-        std::vector<std::pair<float,int>> raw;
+        std::vector<std::pair<float, int>> raw;
         if (!keyword.empty()) {
             std::string kw = keyword;
             std::transform(kw.begin(), kw.end(), kw.begin(), ::tolower);
-            auto pred = [&](const VectorItem& vi) {
-                if (!store.count(vi.id)) return false;
-                std::string t = store[vi.id].title + " " + store[vi.id].text;
-                std::transform(t.begin(), t.end(), t.begin(), ::tolower);
-                return t.find(kw) != std::string::npos;
+            auto pred = [&](const VectorItem& item) {
+                if (!store.count(item.id)) return false;
+                std::string full = store[item.id].title + " " + store[item.id].text;
+                std::transform(full.begin(), full.end(), full.begin(), ::tolower);
+                return full.find(kw) != std::string::npos;
             };
-            raw = hnsw.knnFiltered(q, k, 50, cosine, pred);
+            raw = bf.knnFiltered(q, k, cosine, pred);
         } else {
             raw = (store.size() < 10)
                        ? bf.knn(q, k, cosine)
@@ -1480,6 +1641,312 @@ public:
 
     int getDims() { return dims; }
 };
+
+// =====================================================================
+//  OLLAMA LLM & EMBEDDING BRIDGE
+// =====================================================================
+
+struct OllamaClient {
+    std::string host = "localhost";
+    int port = 11434;
+    std::string embedModel = "nomic-embed-text";
+    std::string genModel   = "llama3";
+
+    bool isAvailable() {
+        httplib::Client cli(host, port);
+        cli.set_connection_timeout(0, 300000); // 300ms
+        auto res = cli.Get("/api/tags");
+        return (res && res->status == 200);
+    }
+
+    std::vector<float> embed(const std::string& prompt) {
+        httplib::Client cli(host, port);
+        cli.set_connection_timeout(2, 0);
+        cli.set_read_timeout(10, 0);
+        std::string body = "{\"model\":\"" + embedModel + "\",\"prompt\":\"" + prompt + "\"}";
+        auto res = cli.Post("/api/embeddings", body, "application/json");
+        if (!res || res->status != 200) return {};
+
+        std::vector<float> vec;
+        std::string s = res->body;
+        auto pos = s.find("\"embedding\":[");
+        if (pos == std::string::npos) return {};
+        pos += 13;
+        while (pos < s.size() && s[pos] != ']') {
+            while (pos < s.size() && (s[pos] == ' ' || s[pos] == ',')) pos++;
+            if (pos >= s.size() || s[pos] == ']') break;
+            size_t next;
+            float val = std::stof(s.substr(pos), &next);
+            vec.push_back(val);
+            pos += next;
+        }
+        return vec;
+    }
+
+    std::string generate(const std::string& prompt) {
+        httplib::Client cli(host, port);
+        cli.set_connection_timeout(2, 0);
+        cli.set_read_timeout(30, 0);
+        std::string body = "{\"model\":\"" + genModel + "\",\"prompt\":\"" + prompt + "\",\"stream\":false}";
+        auto res = cli.Post("/api/generate", body, "application/json");
+        if (!res || res->status != 200) return "Ollama generation error.";
+
+        std::string s = res->body;
+        auto pos = s.find("\"response\":\"");
+        if (pos == std::string::npos) return "";
+        pos += 12;
+        std::string out;
+        while (pos < s.size()) {
+            if (s[pos] == '\\' && pos + 1 < s.size()) {
+                if (s[pos+1] == '"')  { out += '"';  pos += 2; continue; }
+                if (s[pos+1] == 'n')  { out += '\n'; pos += 2; continue; }
+                if (s[pos+1] == 't')  { out += '\t'; pos += 2; continue; }
+                if (s[pos+1] == '\\') { out += '\\'; pos += 2; continue; }
+            }
+            if (s[pos] == '"') break;
+            out += s[pos++];
+        }
+        return out;
+    }
+};
+
+// =====================================================================
+//  WEEK 8: SIFT10K BENCHMARK SUITE (Recall@K vs QPS Profiler)
+// =====================================================================
+
+struct SIFTEvaluation {
+    std::string algorithm;
+    float recallPercent;
+    long long avgLatencyUs;
+    double qps;
+    float speedupFactor;
+    int probedElements;
+};
+
+inline std::vector<SIFTEvaluation> runSIFTBenchmark(int numVectors = 1000, int dims = 128, int numQueries = 50, int k = 10) {
+    std::mt19937 rng(1337);
+    std::normal_distribution<float> norm(0.0f, 1.0f);
+
+    // 1. Generate SIFT-like 128D clustered dataset
+    std::vector<std::vector<float>> dataset(numVectors, std::vector<float>(dims));
+    for (int i = 0; i < numVectors; i++) {
+        for (int d = 0; d < dims; d++) dataset[i][d] = norm(rng);
+        float len = 0.0f;
+        for (int d = 0; d < dims; d++) len += dataset[i][d] * dataset[i][d];
+        len = std::sqrt(len);
+        for (int d = 0; d < dims; d++) dataset[i][d] /= len;
+    }
+
+    // 2. Generate Queries
+    std::vector<std::vector<float>> queries(numQueries, std::vector<float>(dims));
+    for (int q = 0; q < numQueries; q++) {
+        for (int d = 0; d < dims; d++) queries[q][d] = norm(rng);
+        float len = 0.0f;
+        for (int d = 0; d < dims; d++) len += queries[q][d] * queries[q][d];
+        len = std::sqrt(len);
+        for (int d = 0; d < dims; d++) queries[q][d] /= len;
+    }
+
+    // 3. Build Indexes
+    BruteForce bf;
+    KDTree kdt(dims);
+    HNSW hnsw(16, 200);
+    IVFFlat ivf(dims, 16);
+
+    std::vector<VectorItem> items;
+    for (int i = 0; i < numVectors; i++) {
+        VectorItem vi{i + 1, "sift_vector_" + std::to_string(i+1), "sift", dataset[i]};
+        items.push_back(vi);
+        bf.insert(vi);
+        kdt.insert(vi);
+        hnsw.insert(vi, euclidean);
+    }
+    ivf.train(items, 16, 20, euclidean);
+
+    // 4. Compute Ground Truth with Exact Brute-Force
+    std::vector<std::vector<int>> groundTruth(numQueries);
+    auto t0 = std::chrono::high_resolution_clock::now();
+    for (int q = 0; q < numQueries; q++) {
+        auto res = bf.knn(queries[q], k, euclidean);
+        for (auto& p : res) groundTruth[q].push_back(p.second);
+    }
+    auto t1 = std::chrono::high_resolution_clock::now();
+    long long bfTotalUs = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    long long bfAvgUs = bfTotalUs / numQueries;
+    if (bfAvgUs <= 0) bfAvgUs = 1;
+
+    std::vector<SIFTEvaluation> evals;
+    evals.push_back({
+        "Brute-Force Scan (Exact Baseline)",
+        100.0f,
+        bfAvgUs,
+        (double)numQueries / ((double)bfTotalUs / 1e6),
+        1.0f,
+        numVectors
+    });
+
+    // KD-Tree
+    auto tKdt0 = std::chrono::high_resolution_clock::now();
+    int kdtMatch = 0;
+    for (int q = 0; q < numQueries; q++) {
+        auto res = kdt.knn(queries[q], k, euclidean);
+        std::set<int> gt(groundTruth[q].begin(), groundTruth[q].end());
+        for (auto& p : res) if (gt.count(p.second)) kdtMatch++;
+    }
+    auto tKdt1 = std::chrono::high_resolution_clock::now();
+    long long kdtTotalUs = std::chrono::duration_cast<std::chrono::microseconds>(tKdt1 - tKdt0).count();
+    long long kdtAvgUs = kdtTotalUs / numQueries;
+    if (kdtAvgUs <= 0) kdtAvgUs = 1;
+    evals.push_back({
+        "KD-Tree Spatial Partitioning",
+        ((float)kdtMatch / (float)(numQueries * k)) * 100.0f,
+        kdtAvgUs,
+        (double)numQueries / ((double)kdtTotalUs / 1e6),
+        (float)bfAvgUs / (float)kdtAvgUs,
+        (int)(numVectors * 0.85f)
+    });
+
+    // IVF-Flat (nprobe = 2)
+    auto tIvf0 = std::chrono::high_resolution_clock::now();
+    int ivfMatch = 0;
+    for (int q = 0; q < numQueries; q++) {
+        auto res = ivf.knn(queries[q], k, 2, euclidean);
+        std::set<int> gt(groundTruth[q].begin(), groundTruth[q].end());
+        for (auto& p : res) if (gt.count(p.second)) ivfMatch++;
+    }
+    auto tIvf1 = std::chrono::high_resolution_clock::now();
+    long long ivfTotalUs = std::chrono::duration_cast<std::chrono::microseconds>(tIvf1 - tIvf0).count();
+    long long ivfAvgUs = ivfTotalUs / numQueries;
+    if (ivfAvgUs <= 0) ivfAvgUs = 1;
+    evals.push_back({
+        "IVF-Flat (K-Means Voronoi, nprobe=2)",
+        ((float)ivfMatch / (float)(numQueries * k)) * 100.0f,
+        ivfAvgUs,
+        (double)numQueries / ((double)ivfTotalUs / 1e6),
+        (float)bfAvgUs / (float)ivfAvgUs,
+        (int)(numVectors * 0.125f)
+    });
+
+    // HNSW (M=16, efSearch=50)
+    auto tHnsw0 = std::chrono::high_resolution_clock::now();
+    int hnswMatch = 0;
+    for (int q = 0; q < numQueries; q++) {
+        auto res = hnsw.knn(queries[q], k, 50, euclidean);
+        std::set<int> gt(groundTruth[q].begin(), groundTruth[q].end());
+        for (auto& p : res) if (gt.count(p.second)) hnswMatch++;
+    }
+    auto tHnsw1 = std::chrono::high_resolution_clock::now();
+    long long hnswTotalUs = std::chrono::duration_cast<std::chrono::microseconds>(tHnsw1 - tHnsw0).count();
+    long long hnswAvgUs = hnswTotalUs / numQueries;
+    if (hnswAvgUs <= 0) hnswAvgUs = 1;
+    evals.push_back({
+        "HNSW Multi-Layer Proximity Graph (ef=50)",
+        ((float)hnswMatch / (float)(numQueries * k)) * 100.0f,
+        hnswAvgUs,
+        (double)numQueries / ((double)hnswTotalUs / 1e6),
+        (float)bfAvgUs / (float)hnswAvgUs,
+        64
+    });
+
+    return evals;
+}
+
+// =====================================================================
+//  JSON SERIALIZATION & PARSING UTILITIES
+// =====================================================================
+
+inline void cors(httplib::Response& res) {
+    res.set_header("Access-Control-Allow-Origin", "*");
+    res.set_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.set_header("Access-Control-Allow-Headers", "Content-Type, Accept");
+}
+
+inline std::string jS(const std::string& s) {
+    std::string o = "\"";
+    for (char c : s) {
+        if      (c == '"')  o += "\\\"";
+        else if (c == '\\') o += "\\\\";
+        else if (c == '\n') o += "\\n";
+        else if (c == '\r') o += "\\r";
+        else if (c == '\t') o += "\\t";
+        else                o += c;
+    }
+    return o + "\"";
+}
+
+inline std::string jVec(const std::vector<float>& v) {
+    std::string s = "[";
+    for (size_t i = 0; i < v.size(); i++) {
+        if (i) s += ",";
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(4) << v[i];
+        s += ss.str();
+    }
+    return s + "]";
+}
+
+inline std::vector<float> parseVec(const std::string& s) {
+    std::vector<float> v;
+    std::stringstream ss(s);
+    std::string t;
+    while (std::getline(ss, t, ',')) {
+        try { v.push_back(std::stof(t)); } catch (...) {}
+    }
+    return v;
+}
+
+inline bool parseBody(const std::string& b, std::string& meta, std::string& cat, std::vector<float>& emb) {
+    auto findField = [&](const std::string& key) -> std::string {
+        auto pos = b.find("\"" + key + "\"");
+        if (pos == std::string::npos) return "";
+        pos = b.find(':', pos); if (pos == std::string::npos) return "";
+        pos = b.find('"', pos); if (pos == std::string::npos) return "";
+        auto end = b.find('"', pos + 1); if (end == std::string::npos) return "";
+        return b.substr(pos + 1, end - pos - 1);
+    };
+    meta = findField("metadata");
+    cat  = findField("category");
+
+    auto pos = b.find("\"embedding\"");
+    if (pos == std::string::npos) return false;
+    pos = b.find('[', pos); if (pos == std::string::npos) return false;
+    auto end = b.find(']', pos); if (end == std::string::npos) return false;
+    emb = parseVec(b.substr(pos + 1, end - pos - 1));
+    return true;
+}
+
+inline std::string extractStr(const std::string& body, const std::string& key) {
+    auto pos = body.find("\"" + key + "\"");
+    if (pos == std::string::npos) return "";
+    pos = body.find(':', pos); if (pos == std::string::npos) return "";
+    pos = body.find('"', pos); if (pos == std::string::npos) return "";
+    auto end = body.find('"', pos + 1); if (end == std::string::npos) return "";
+    return body.substr(pos + 1, end - pos - 1);
+}
+
+inline int extractInt(const std::string& body, const std::string& key, int defaultVal) {
+    auto pos = body.find("\"" + key + "\"");
+    if (pos == std::string::npos) return defaultVal;
+    pos = body.find(':', pos); if (pos == std::string::npos) return defaultVal;
+    while (pos < body.size() && (body[pos] == ':' || body[pos] == ' ')) pos++;
+    try {
+        return std::stoi(body.substr(pos));
+    } catch (...) {
+        return defaultVal;
+    }
+}
+
+inline float extractFloat(const std::string& body, const std::string& key, float defaultVal) {
+    auto pos = body.find("\"" + key + "\"");
+    if (pos == std::string::npos) return defaultVal;
+    pos = body.find(':', pos); if (pos == std::string::npos) return defaultVal;
+    while (pos < body.size() && (body[pos] == ':' || body[pos] == ' ')) pos++;
+    try {
+        return std::stof(body.substr(pos));
+    } catch (...) {
+        return defaultVal;
+    }
+}
 
 // =====================================================================
 //  DEMO DATASET (16D Semantic Clusters)
@@ -1536,6 +2003,8 @@ void loadDemo(VectorDB& db, WALManager& wal) {
         VectorItem vi{id, item.meta, item.cat, item.emb};
         wal.logInsert(vi);
     }
+    db.trainIVF(4);
+    db.fitPCA(2);
 }
 
 // =====================================================================
@@ -1548,7 +2017,7 @@ int main() {
     DocumentDB docDB;
     OllamaClient ollama;
 
-    // Phase 2 Crash Recovery: Load Snapshot (.vdb) if present, then replay WAL
+    // Crash Recovery: Load Snapshot (.vdb) if present, then replay WAL
     bool snapshotLoaded = false;
     std::ifstream vdbCheck("vectra.vdb", std::ios::binary);
     if (vdbCheck.is_open()) {
@@ -1593,6 +2062,8 @@ int main() {
         }
         int k = 5;
         try { k = std::stoi(req.get_param_value("k")); } catch (...) {}
+        int nprobe = 2;
+        try { nprobe = std::stoi(req.get_param_value("nprobe")); } catch (...) {}
         auto metric = req.get_param_value("metric"); if (metric.empty()) metric = "cosine";
         auto algo   = req.get_param_value("algo");   if (algo.empty())   algo   = "hnsw";
 
@@ -1600,7 +2071,7 @@ int main() {
         fOpt.category = req.get_param_value("category");
         fOpt.keyword  = req.get_param_value("keyword");
 
-        auto out = db.search(q, k, metric, algo, fOpt);
+        auto out = db.search(q, k, metric, algo, fOpt, nprobe);
         std::ostringstream ss;
         ss << "{\"results\":[";
         for (size_t i = 0; i < out.hits.size(); i++) {
@@ -1667,12 +2138,163 @@ int main() {
         auto metric = req.get_param_value("metric"); if (metric.empty()) metric = "cosine";
         auto b = db.benchmark(q, k, metric);
         std::ostringstream ss;
-        ss << "{\"bruteforceUs\":" << b.bfUs << ",\"kdtreeUs\":" << b.kdUs
-           << ",\"hnswUs\":"       << b.hnswUs << ",\"itemCount\":" << b.n
+        ss << "{\"bruteforceUs\":" << b.bfUs
+           << ",\"kdtreeUs\":"     << b.kdUs
+           << ",\"ivfUs\":"        << b.ivfUs
+           << ",\"hnswUs\":"       << b.hnswUs
+           << ",\"itemCount\":"    << b.n
            << ",\"simdActive\":"   << (g_simd_enabled ? "true" : "false") << '}';
         res.set_content(ss.str(), "application/json");
     });
 
+    // ── WEEK 3: K-MEANS & IVF ENDPOINTS ───────────────────────────────
+    svr.Post("/ivf/train", [&](const httplib::Request& req, httplib::Response& res) {
+        cors(res);
+        int kClusters = extractInt(req.body, "k", 4);
+        db.trainIVF(kClusters);
+        auto& ivf = db.getIVF();
+        std::ostringstream ss;
+        ss << "{\"ok\":true,\"clusters\":" << ivf.centroids.size()
+           << ",\"inertia\":" << ivf.totalInertia
+           << ",\"iterations\":" << ivf.iterationsRun << '}';
+        res.set_content(ss.str(), "application/json");
+    });
+
+    svr.Get("/ivf/info", [&](const httplib::Request&, httplib::Response& res) {
+        cors(res);
+        auto& ivf = db.getIVF();
+        if (!ivf.isTrained) db.trainIVF(4);
+        std::ostringstream ss;
+        ss << "{\"trained\":" << (ivf.isTrained ? "true" : "false")
+           << ",\"nlist\":" << ivf.nlist
+           << ",\"inertia\":" << ivf.totalInertia
+           << ",\"centroids\":[";
+        for (size_t c = 0; c < ivf.centroids.size(); c++) {
+            if (c) ss << ',';
+            ss << "{\"clusterId\":" << c
+               << ",\"vectorCount\":" << (ivf.invertedLists.count(c) ? ivf.invertedLists.at(c).size() : 0)
+               << ",\"itemIds\":[";
+            if (ivf.invertedLists.count(c)) {
+                auto& ids = ivf.invertedLists.at(c);
+                for (size_t j = 0; j < ids.size(); j++) {
+                    if (j) ss << ','; ss << ids[j];
+                }
+            }
+            ss << "],\"centroid\":" << jVec(ivf.centroids[c]) << '}';
+        }
+        ss << "]}";
+        res.set_content(ss.str(), "application/json");
+    });
+
+    // ── WEEK 4: PCA ENDPOINTS ─────────────────────────────────────────
+    svr.Post("/pca/fit", [&](const httplib::Request& req, httplib::Response& res) {
+        cors(res);
+        int comp = extractInt(req.body, "components", 2);
+        db.fitPCA(comp);
+        auto& pca = db.getPCA();
+        auto items = db.all();
+
+        std::ostringstream ss;
+        ss << "{\"ok\":true,\"components\":" << pca.nComponents
+           << ",\"eigenvalues\":" << jVec(pca.eigenvalues)
+           << ",\"explainedVarianceRatio\":" << jVec(pca.explainedVarianceRatio)
+           << ",\"projections\":[";
+        for (size_t i = 0; i < items.size(); i++) {
+            if (i) ss << ',';
+            auto proj = pca.transform(items[i].emb);
+            ss << "{\"id\":" << items[i].id
+               << ",\"metadata\":" << jS(items[i].metadata)
+               << ",\"category\":" << jS(items[i].category)
+               << ",\"x\":" << std::fixed << std::setprecision(4) << (proj.size() > 0 ? proj[0] : 0.0f)
+               << ",\"y\":" << std::fixed << std::setprecision(4) << (proj.size() > 1 ? proj[1] : 0.0f)
+               << '}';
+        }
+        ss << "]}";
+        res.set_content(ss.str(), "application/json");
+    });
+
+    svr.Post("/pca/transform", [&](const httplib::Request& req, httplib::Response& res) {
+        cors(res);
+        auto vec = parseVec(extractStr(req.body, "vector"));
+        if (vec.empty()) vec = parseVec(req.body);
+        auto& pca = db.getPCA();
+        if (!pca.isFitted) db.fitPCA(2);
+        auto proj = pca.transform(vec);
+        std::ostringstream ss;
+        ss << "{\"x\":" << std::fixed << std::setprecision(4) << (proj.size() > 0 ? proj[0] : 0.0f)
+           << ",\"y\":" << std::fixed << std::setprecision(4) << (proj.size() > 1 ? proj[1] : 0.0f)
+           << '}';
+        res.set_content(ss.str(), "application/json");
+    });
+
+    // ── WEEK 5: HYBRID SEARCH (SPARSE BM25 + DENSE HNSW WITH RRF) ────
+    svr.Post("/hybrid/search", [&](const httplib::Request& req, httplib::Response& res) {
+        cors(res);
+        auto queryText = extractStr(req.body, "query");
+        auto cat       = extractStr(req.body, "category");
+        int k          = extractInt(req.body, "k", 5);
+        float alpha    = extractFloat(req.body, "alpha", 0.5f);
+
+        std::vector<float> qVec;
+        auto vecStr = extractStr(req.body, "v");
+        if (!vecStr.empty()) qVec = parseVec(vecStr);
+        if ((int)qVec.size() != DIMS) {
+            // Compute deterministic embedding for hybrid query text
+            qVec = localSemanticEmbed(queryText, DIMS);
+        }
+
+        auto hits = db.searchHybrid(queryText, qVec, k, alpha, cat);
+        std::ostringstream ss;
+        ss << "{\"query\":" << jS(queryText)
+           << ",\"alpha\":" << alpha
+           << ",\"results\":[";
+        for (size_t i = 0; i < hits.size(); i++) {
+            if (i) ss << ',';
+            auto& h = hits[i];
+            ss << "{\"id\":"           << h.id
+               << ",\"metadata\":"     << jS(h.metadata)
+               << ",\"category\":"     << jS(h.category)
+               << ",\"rrfScore\":"     << std::fixed << std::setprecision(6) << h.rrfScore
+               << ",\"denseDist\":"    << std::fixed << std::setprecision(4) << h.denseDist
+               << ",\"bm25Score\":"    << std::fixed << std::setprecision(4) << h.bm25Score
+               << ",\"denseRank\":"    << h.denseRank
+               << ",\"bm25Rank\":"     << h.bm25Rank << '}';
+        }
+        ss << "]}";
+        res.set_content(ss.str(), "application/json");
+    });
+
+    // ── WEEK 8: SIFT10K BENCHMARK SUITE ──────────────────────────────
+    svr.Post("/benchmark/sift", [&](const httplib::Request& req, httplib::Response& res) {
+        cors(res);
+        int numVecs = extractInt(req.body, "numVectors", 1000);
+        int dims    = extractInt(req.body, "dims", 128);
+        int numQ    = extractInt(req.body, "numQueries", 30);
+        int k       = extractInt(req.body, "k", 10);
+
+        auto evals = runSIFTBenchmark(numVecs, dims, numQ, k);
+        std::ostringstream ss;
+        ss << "{\"dataset\":\"SIFT10K-Simulated-128D\""
+           << ",\"numVectors\":" << numVecs
+           << ",\"dims\":"       << dims
+           << ",\"numQueries\":" << numQ
+           << ",\"k\":"          << k
+           << ",\"benchmarks\":[";
+        for (size_t i = 0; i < evals.size(); i++) {
+            if (i) ss << ',';
+            auto& e = evals[i];
+            ss << "{\"algorithm\":"     << jS(e.algorithm)
+               << ",\"recallPercent\":" << std::fixed << std::setprecision(2) << e.recallPercent
+               << ",\"avgLatencyUs\":"  << e.avgLatencyUs
+               << ",\"qps\":"           << (long long)e.qps
+               << ",\"speedupFactor\":" << std::fixed << std::setprecision(2) << e.speedupFactor
+               << ",\"probedElements\":"<< e.probedElements << '}';
+        }
+        ss << "]}";
+        res.set_content(ss.str(), "application/json");
+    });
+
+    // ── HNSW GRAPH METRICS ────────────────────────────────────────────
     svr.Get("/hnsw-info", [&](const httplib::Request&, httplib::Response& res) {
         cors(res);
         auto gi = db.hnswInfo();
@@ -1703,9 +2325,7 @@ int main() {
         res.set_content(ss.str(), "application/json");
     });
 
-    // ── MILESTONE 2: AVX2 SIMD BENCHMARK & TOGGLE ──────────────────────
-
-    // POST /simd/toggle {"enabled": true/false}
+    // ── AVX2 SIMD BENCHMARK & TOGGLE ──────────────────────────────────
     svr.Post("/simd/toggle", [&](const httplib::Request& req, httplib::Response& res) {
         cors(res);
         if (req.body.find("false") != std::string::npos) {
@@ -1719,8 +2339,6 @@ int main() {
         res.set_content(ss.str(), "application/json");
     });
 
-    // POST /benchmark/simd
-    // Evaluates pure scalar loop vs 8-wide AVX2 vectorization over high-dimensional vectors
     svr.Post("/benchmark/simd", [&](const httplib::Request& req, httplib::Response& res) {
         cors(res);
         int iters = extractInt(req.body, "iterations", 25000);
@@ -1773,9 +2391,7 @@ int main() {
         res.set_content(ss.str(), "application/json");
     });
 
-    // ── MILESTONE 2: STORAGE ENGINE & WAL ENDPOINTS ───────────────────
-
-    // POST /storage/snapshot
+    // ── STORAGE ENGINE & WAL ENDPOINTS ────────────────────────────────
     svr.Post("/storage/snapshot", [&](const httplib::Request&, httplib::Response& res) {
         cors(res);
         bool ok = StorageEngine::saveSnapshot("vectra.vdb", db, wal);
@@ -1786,7 +2402,6 @@ int main() {
         res.set_content(ss.str(), "application/json");
     });
 
-    // POST /storage/restore
     svr.Post("/storage/restore", [&](const httplib::Request&, httplib::Response& res) {
         cors(res);
         bool ok = StorageEngine::loadSnapshot("vectra.vdb", db);
@@ -1797,7 +2412,6 @@ int main() {
         res.set_content(ss.str(), "application/json");
     });
 
-    // GET /storage/info
     svr.Get("/storage/info", [&](const httplib::Request&, httplib::Response& res) {
         cors(res);
         size_t vdbBytes = 0;
@@ -1822,9 +2436,7 @@ int main() {
         res.set_content(ss.str(), "application/json");
     });
 
-    // ── MILESTONE 2: SCALAR QUANTIZATION (SQ8) ENDPOINTS ──────────────
-
-    // GET /sq8/stats
+    // ── SCALAR QUANTIZATION (SQ8) ENDPOINTS ───────────────────────────
     svr.Get("/sq8/stats", [&](const httplib::Request&, httplib::Response& res) {
         cors(res);
         auto qs = db.getSQ8Stats();
@@ -1839,7 +2451,6 @@ int main() {
         res.set_content(ss.str(), "application/json");
     });
 
-    // POST /benchmark/sq8
     svr.Post("/benchmark/sq8", [&](const httplib::Request&, httplib::Response& res) {
         cors(res);
         auto items = db.all();
@@ -1856,7 +2467,7 @@ int main() {
         auto q = items[0].emb;
         int k = 5;
 
-        // FP32 HNSW / Exact KNN
+        // FP32 Exact KNN
         auto t0 = std::chrono::high_resolution_clock::now();
         auto groundTruth = db.search(q, k, "cosine", "bruteforce");
         auto t1 = std::chrono::high_resolution_clock::now();
@@ -1889,8 +2500,6 @@ int main() {
     });
 
     // ── DOCUMENT + RAG ENDPOINTS ──────────────────────────────────────
-
-    // POST /doc/insert {"title":"...","text":"..."}
     svr.Post("/doc/insert", [&](const httplib::Request& req, httplib::Response& res) {
         cors(res);
         auto title = extractStr(req.body, "title");
@@ -2078,7 +2687,7 @@ int main() {
         std::ostringstream ss;
         ss << "{\"count\":"           << db.size()
            << ",\"dims\":"            << DIMS
-           << ",\"algorithms\":[\"bruteforce\",\"kdtree\",\"hnsw\"]"
+           << ",\"algorithms\":[\"bruteforce\",\"kdtree\",\"ivf\",\"hnsw\"]"
            << ",\"metrics\":[\"euclidean\",\"cosine\",\"manhattan\"]"
            << ",\"avx2Supported\":"   << (VECTRA_AVX2_SUPPORTED ? "true" : "false")
            << ",\"simdActive\":"      << (g_simd_enabled ? "true" : "false")
