@@ -1,0 +1,14 @@
+# Build Artifacts & Binaries
+*.exe
+*.o
+*.obj
+*.log
+stderr.txt
+stdout.txt
+*.bak
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
