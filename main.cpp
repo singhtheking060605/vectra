@@ -697,31 +697,30 @@ public:
     int dims;
     int nComponents;
     std::vector<float> mean;
-    std::vector<std::vector<float>> components; // Principal Eigenvectors (nComponents x dims)
+    std::vector<std::vector<float>> components; // Principal Eigenvectors
     std::vector<float> eigenvalues;
     std::vector<float> explainedVarianceRatio;
     bool isFitted = false;
 
-    explicit PCAReducer(int d) : dims(d), nComponents(2), mean(d, 0.0f) {}
+    explicit PCAReducer(int d = 16) : dims(d), nComponents(2), mean(d, 0.0f) {}
 
-    // Power Iteration with Hotelling Deflation for top Principal Eigenvectors
     void fit(const std::vector<std::vector<float>>& data, int kComp = 2) {
         if (data.empty()) return;
-        nComponents = std::min(kComp, dims);
+        dims = (int)data[0].size();
+        if (dims <= 0) return;
+        nComponents = std::max(1, std::min(kComp, dims));
         size_t N = data.size();
 
-        // 1. Mean calculation
         mean.assign(dims, 0.0f);
         for (const auto& vec : data) {
-            for (int j = 0; j < dims; j++) mean[j] += vec[j];
+            for (int j = 0; j < dims && j < (int)vec.size(); j++) mean[j] += vec[j];
         }
         for (int j = 0; j < dims; j++) mean[j] /= (float)N;
 
-        // 2. Covariance matrix C = (1/N) * sum((x-u)(x-u)^T)
         std::vector<std::vector<float>> cov(dims, std::vector<float>(dims, 0.0f));
         for (const auto& vec : data) {
-            std::vector<float> centered(dims);
-            for (int j = 0; j < dims; j++) centered[j] = vec[j] - mean[j];
+            std::vector<float> centered(dims, 0.0f);
+            for (int j = 0; j < dims && j < (int)vec.size(); j++) centered[j] = vec[j] - mean[j];
             for (int r = 0; r < dims; r++) {
                 for (int c = 0; c < dims; c++) {
                     cov[r][c] += centered[r] * centered[c];
@@ -730,26 +729,23 @@ public:
         }
         float totalVar = 0.0f;
         for (int r = 0; r < dims; r++) {
-            for (int c = 0; c < dims; c++) {
-                cov[r][c] /= (float)N;
-            }
+            for (int c = 0; c < dims; c++) cov[r][c] /= (float)N;
             totalVar += cov[r][r];
         }
-        if (totalVar < 1e-9f) totalVar = 1.0f;
+        if (totalVar < 1e-6f) totalVar = 1.0f;
 
         components.clear();
         eigenvalues.clear();
         explainedVarianceRatio.clear();
 
-        // 3. Power Iteration & Deflation for top k components
         std::vector<std::vector<float>> A = cov;
         for (int comp = 0; comp < nComponents; comp++) {
-            // Random initial vector
-            std::vector<float> v(dims, 1.0f);
-            for (int i = 0; i < dims; i++) v[i] = std::sin((float)(i + comp + 1));
+            std::vector<float> v(dims, 0.0f);
+            for (int i = 0; i < dims; i++) v[i] = std::sin((float)(i + comp + 1) * 1.5f) + 0.1f;
             float norm = 0.0f;
             for (float val : v) norm += val * val;
             norm = std::sqrt(norm);
+            if (norm < 1e-6f) norm = 1.0f;
             for (float& val : v) val /= norm;
 
             float lambda = 0.0f;
@@ -771,9 +767,8 @@ public:
 
             components.push_back(v);
             eigenvalues.push_back(lambda);
-            explainedVarianceRatio.push_back(std::min(1.0f, lambda / totalVar));
+            explainedVarianceRatio.push_back(std::max(0.0f, std::min(1.0f, lambda / totalVar)));
 
-            // Deflation: A = A - lambda * (v * v^T)
             for (int r = 0; r < dims; r++) {
                 for (int c = 0; c < dims; c++) {
                     A[r][c] -= lambda * v[r] * v[c];
@@ -787,7 +782,7 @@ public:
         if (!isFitted || components.empty()) {
             return {vec.size() > 0 ? vec[0] : 0.0f, vec.size() > 1 ? vec[1] : 0.0f};
         }
-        std::vector<float> projected(nComponents, 0.0f);
+        std::vector<float> out(nComponents, 0.0f);
         std::vector<float> centered(dims, 0.0f);
         for (int j = 0; j < dims && j < (int)vec.size(); j++) {
             centered[j] = vec[j] - mean[j];
@@ -795,32 +790,12 @@ public:
 
         for (int c = 0; c < nComponents; c++) {
             float dot = 0.0f;
-#if defined(__AVX2__)
-            if (g_simd_enabled && dims >= 8) {
-                size_t i = 0;
-                __m256 dot256 = _mm256_setzero_ps();
-                for (; i + 8 <= (size_t)dims; i += 8) {
-                    __m256 va = _mm256_loadu_ps(centered.data() + i);
-                    __m256 vb = _mm256_loadu_ps(components[c].data() + i);
-#if defined(__FMA__)
-                    dot256 = _mm256_fmadd_ps(va, vb, dot256);
-#else
-                    dot256 = _mm256_add_ps(dot256, _mm256_mul_ps(va, vb));
-#endif
-                }
-                alignas(32) float buf[8];
-                _mm256_storeu_ps(buf, dot256);
-                dot = buf[0]+buf[1]+buf[2]+buf[3]+buf[4]+buf[5]+buf[6]+buf[7];
-                for (; i < (size_t)dims; i++) dot += centered[i] * components[c][i];
-            } else {
-                for (int j = 0; j < dims; j++) dot += centered[j] * components[c][j];
+            for (int j = 0; j < dims; j++) {
+                dot += centered[j] * components[c][j];
             }
-#else
-            for (int j = 0; j < dims; j++) dot += centered[j] * components[c][j];
-#endif
-            projected[c] = dot;
+            out[c] = dot;
         }
-        return projected;
+        return out;
     }
 };
 
@@ -1236,6 +1211,7 @@ public:
 
     // Principal Component Analysis (Week 4)
     void fitPCA(int nComp = 2) {
+        std::lock_guard<std::mutex> lk(mu);
         std::vector<std::vector<float>> data;
         for (auto& [id, v] : store) data.push_back(v.emb);
         pca.fit(data, nComp);
@@ -1429,33 +1405,33 @@ public:
         if (!f.is_open()) return false;
 
         char magic[8];
-        f.read(magic, 8);
+        if (!f.read(magic, 8)) return false;
         if (std::memcmp(magic, "VECTRA02", 8) != 0) return false;
 
         uint32_t count = 0, dims = 0;
-        f.read(reinterpret_cast<char*>(&count), sizeof(count));
-        f.read(reinterpret_cast<char*>(&dims),  sizeof(dims));
+        if (!f.read(reinterpret_cast<char*>(&count), sizeof(count))) return false;
+        if (!f.read(reinterpret_cast<char*>(&dims),  sizeof(dims)) || dims > 4096) return false;
 
         std::unordered_map<int, VectorItem> state;
         int maxId = 0;
 
         for (uint32_t i = 0; i < count; i++) {
             int32_t id;
-            f.read(reinterpret_cast<char*>(&id), sizeof(id));
+            if (!f.read(reinterpret_cast<char*>(&id), sizeof(id))) break;
             maxId = std::max(maxId, (int)id);
 
             uint32_t metaLen;
-            f.read(reinterpret_cast<char*>(&metaLen), sizeof(metaLen));
+            if (!f.read(reinterpret_cast<char*>(&metaLen), sizeof(metaLen)) || metaLen > 100000) break;
             std::string meta(metaLen, '\0');
-            f.read(&meta[0], metaLen);
+            if (!f.read(&meta[0], metaLen)) break;
 
             uint32_t catLen;
-            f.read(reinterpret_cast<char*>(&catLen), sizeof(catLen));
+            if (!f.read(reinterpret_cast<char*>(&catLen), sizeof(catLen)) || catLen > 100000) break;
             std::string cat(catLen, '\0');
-            f.read(&cat[0], catLen);
+            if (!f.read(&cat[0], catLen)) break;
 
             std::vector<float> emb(dims);
-            f.read(reinterpret_cast<char*>(emb.data()), dims * sizeof(float));
+            if (!f.read(reinterpret_cast<char*>(emb.data()), dims * sizeof(float))) break;
 
             state[id] = {id, meta, cat, emb};
         }
@@ -1469,36 +1445,38 @@ public:
         if (!f.is_open()) return 0;
 
         int count = 0;
-        while (f.peek() != EOF) {
+        while (f.peek() != EOF && f.good()) {
             uint8_t opType;
             if (!f.read(reinterpret_cast<char*>(&opType), sizeof(opType))) break;
 
             if (opType == 1) { // INSERT
                 int32_t id;
-                f.read(reinterpret_cast<char*>(&id), sizeof(id));
+                if (!f.read(reinterpret_cast<char*>(&id), sizeof(id))) break;
 
                 uint32_t metaLen;
-                f.read(reinterpret_cast<char*>(&metaLen), sizeof(metaLen));
+                if (!f.read(reinterpret_cast<char*>(&metaLen), sizeof(metaLen)) || metaLen > 100000) break;
                 std::string meta(metaLen, '\0');
-                f.read(&meta[0], metaLen);
+                if (!f.read(&meta[0], metaLen)) break;
 
                 uint32_t catLen;
-                f.read(reinterpret_cast<char*>(&catLen), sizeof(catLen));
+                if (!f.read(reinterpret_cast<char*>(&catLen), sizeof(catLen)) || catLen > 100000) break;
                 std::string cat(catLen, '\0');
-                f.read(&cat[0], catLen);
+                if (!f.read(&cat[0], catLen)) break;
 
                 uint32_t dims;
-                f.read(reinterpret_cast<char*>(&dims), sizeof(dims));
+                if (!f.read(reinterpret_cast<char*>(&dims), sizeof(dims)) || dims > 4096) break;
                 std::vector<float> emb(dims);
-                f.read(reinterpret_cast<char*>(emb.data()), dims * sizeof(float));
+                if (!f.read(reinterpret_cast<char*>(emb.data()), dims * sizeof(float))) break;
 
                 db.insertWithId(id, meta, cat, emb, dist);
                 count++;
             } else if (opType == 2) { // DELETE
                 int32_t id;
-                f.read(reinterpret_cast<char*>(&id), sizeof(id));
+                if (!f.read(reinterpret_cast<char*>(&id), sizeof(id))) break;
                 db.remove(id);
                 count++;
+            } else {
+                break;
             }
         }
         return count;
@@ -1653,10 +1631,15 @@ struct OllamaClient {
     std::string genModel   = "llama3";
 
     bool isAvailable() {
-        httplib::Client cli(host, port);
-        cli.set_connection_timeout(0, 300000); // 300ms
-        auto res = cli.Get("/api/tags");
-        return (res && res->status == 200);
+        try {
+            httplib::Client cli(host, port);
+            cli.set_connection_timeout(0, 100000); // 100ms
+            cli.set_read_timeout(0, 200000);
+            auto res = cli.Get("/api/tags");
+            return (res && res->status == 200);
+        } catch (...) {
+            return false;
+        }
     }
 
     std::vector<float> embed(const std::string& prompt) {
@@ -2025,7 +2008,7 @@ int main() {
         snapshotLoaded = StorageEngine::loadSnapshot("vectra.vdb", db);
     }
 
-    if (!snapshotLoaded && db.size() == 0) {
+    if (db.size() < 10) {
         loadDemo(db, wal);
     }
 
@@ -2695,6 +2678,25 @@ int main() {
         res.set_content(ss.str(), "application/json");
     });
 
+    // Exception and Error Handling
+    svr.set_exception_handler([](const auto&, auto& res, std::exception_ptr ep) {
+        cors(res);
+        try {
+            if (ep) std::rethrow_exception(ep);
+        } catch (const std::exception& e) {
+            std::cout << "[ERROR] Exception: " << e.what() << "\n";
+        } catch (...) {}
+        res.set_content("{\"error\":\"internal server error\"}", "application/json");
+        res.status = 500;
+    });
+
+    svr.set_error_handler([](const auto&, auto& res) {
+        cors(res);
+        if (res.status == 404) {
+            res.set_content("{\"error\":\"route not found\"}", "application/json");
+        }
+    });
+
     // Serve index.html
     svr.Get("/", [](const httplib::Request&, httplib::Response& res) {
         std::ifstream f("index.html");
@@ -2705,6 +2707,12 @@ int main() {
             "text/html");
     });
 
-    svr.listen("0.0.0.0", 8080);
+    std::cout << "[READY] VECTRA Engine Listening on http://localhost:8080\n";
+    while (true) {
+        bool ok = svr.listen("0.0.0.0", 8080);
+        if (!ok) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+    }
     return 0;
 }
