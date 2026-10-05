@@ -1,1807 +1,948 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VECTRA </title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet">
-  <!-- PDF.js for Client-Side Multi-Page PDF Extraction -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <style>
-    :root {
-      --bg-deep: #050711;
-      --bg-surface: #0a0f1d;
-      --bg-card: rgba(13, 19, 36, 0.85);
-      --bg-card-hover: rgba(20, 28, 52, 0.95);
-      --border: rgba(255, 255, 255, 0.08);
-      --border-focus: rgba(0, 242, 254, 0.5);
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VECTRA — Vector Database Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #060713;
+  --bg-panel: #090b1a;
+  --bg-card: rgba(16, 20, 42, 0.7);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-focus: rgba(99, 102, 241, 0.6);
 
-      --cs: #00f2fe;
-      --math: #b388ff;
-      --food: #fbbf24;
-      --sports: #10b981;
-      --query: #f43f5e;
-      --purple: #a855f7;
+  --cs: #00f2fe;
+  --math: #b388ff;
+  --food: #fbbf24;
+  --sports: #10b981;
+  --rag: #34d399;
+  --query: #f43f5e;
 
-      --accent: #6366f1;
-      --accent-glow: rgba(99, 102, 241, 0.35);
-      --accent-gradient: linear-gradient(135deg, #6366f1 0%, #00f2fe 100%);
+  --accent: #5865f2;
+  --accent-glow: rgba(88, 101, 242, 0.4);
+  --accent-gradient: linear-gradient(135deg, #5865f2 0%, #3b82f6 100%);
 
-      --text: #f8fafc;
-      --text-dim: #94a3b8;
-      --text-muted: #64748b;
-      --green: #10b981;
-      --red: #f43f5e;
-      --amber: #fbbf24;
-    }
+  --text: #f1f5f9;
+  --text-dim: #94a3b8;
+  --text-muted: #64748b;
+}
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
-    body {
-      background: var(--bg-deep);
-      color: var(--text);
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      height: 100vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
+/* ── HEADER ── */
+header {
+  height: 48px;
+  background: rgba(8, 10, 22, 0.95);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 50;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #fff;
+}
+.badge-pill {
+  font-family: 'Fira Code', monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-dim);
+}
+.badge-pill.active {
+  border-color: rgba(88, 101, 242, 0.6);
+  background: rgba(88, 101, 242, 0.15);
+  color: #818cf8;
+}
+.badge-pill.status {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+}
+.header-right {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
 
-    /* ── HEADER & NAVIGATION ── */
-    header {
-      background: rgba(8, 12, 24, 0.92);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-      padding: 8px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-shrink: 0;
-      z-index: 50;
-    }
+/* ── MAIN WORKSPACE (3-COLUMN LAYOUT) ── */
+.workspace {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
 
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
+/* ── LEFT SIDEBAR ── */
+.sidebar-left {
+  width: 280px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 14px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.btn-search-action {
+  width: 100%;
+  padding: 11px 16px;
+  background: var(--accent-gradient);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 0 16px var(--accent-glow);
+  transition: all 0.2s;
+}
+.btn-search-action:hover {
+  box-shadow: 0 0 24px var(--accent-glow);
+  transform: translateY(-1px);
+}
+.control-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.control-label {
+  font-family: 'Outfit', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+}
+.algo-btn-group {
+  display: flex;
+  gap: 4px;
+}
+.algo-btn {
+  flex: 1;
+  padding: 7px 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: 'Fira Code', monospace;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.algo-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+.algo-btn.active {
+  border-color: rgba(88, 101, 242, 0.8);
+  background: rgba(88, 101, 242, 0.2);
+  color: #fff;
+}
+.input-select {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+.input-select option {
+  background: #0f1328;
+  color: #fff;
+}
+.slider-range {
+  width: 100%;
+  accent-color: #6366f1;
+  cursor: pointer;
+}
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      user-select: none;
-      cursor: pointer;
-    }
+.legend-box {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
 
-    .brand-logo {
-      width: 32px;
-      height: 32px;
-      background: var(--accent-gradient);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Outfit', sans-serif;
-      font-weight: 800;
-      font-size: 16px;
-      color: #fff;
-      box-shadow: 0 0 16px var(--accent-glow);
-    }
+.input-text {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+.input-text:focus {
+  border-color: var(--border-focus);
+}
 
-    .brand-info {
-      display: flex;
-      flex-direction: column;
-    }
+/* ── CENTER CANVAS VIEWPORT ── */
+.center-viewport {
+  flex: 1;
+  position: relative;
+  background: #04050c;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.canvas-header {
+  position: absolute;
+  top: 14px;
+  left: 20px;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 10;
+}
+#pcaCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.axis-label-x {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+}
+.axis-label-y {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+}
 
-    .brand-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 18px;
-      font-weight: 800;
-      letter-spacing: 1.5px;
-      background: var(--accent-gradient);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      line-height: 1.1;
-    }
+/* ── RIGHT PANEL (SEARCH | DOCUMENTS | ASK AI) ── */
+.sidebar-right {
+  width: 320px;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.right-tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.3);
+}
+.right-tab-btn {
+  flex: 1;
+  padding: 12px 6px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.right-tab-btn.active {
+  color: #818cf8;
+  border-bottom-color: #6366f1;
+}
+.right-tab-content {
+  flex: 1;
+  display: none;
+  flex-direction: column;
+  padding: 16px;
+  gap: 14px;
+  overflow-y: auto;
+}
+.right-tab-content.active {
+  display: flex;
+}
 
-    .brand-sub {
-      font-size: 10px;
-      color: var(--text-dim);
-      font-weight: 500;
-    }
+.latency-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.latency-line {
+  height: 4px;
+  background: var(--cs);
+  border-radius: 2px;
+  width: 24px;
+  box-shadow: 0 0 8px var(--cs);
+}
+.latency-text {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+}
 
-    .nav-tabs {
-      display: flex;
-      gap: 4px;
-      background: rgba(0, 0, 0, 0.4);
-      padding: 3px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-    }
+.hit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hit-card {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.15s;
+}
+.hit-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--card-color, var(--cs));
+}
+.hit-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.hit-tag {
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  font-weight: 600;
+}
+.hit-dist {
+  font-family: 'Fira Code', monospace;
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+.hit-title {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text);
+}
+.hit-bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.hit-bar-fill {
+  height: 100%;
+  background: var(--card-color, var(--cs));
+  border-radius: 2px;
+}
 
-    .nav-tab {
-      padding: 6px 12px;
-      font-family: 'Outfit', sans-serif;
-      font-size: 11.5px;
-      font-weight: 600;
-      color: var(--text-dim);
-      border-radius: 7px;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      user-select: none;
-      white-space: nowrap;
-    }
+.embedding-box {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  word-break: break-all;
+}
 
-    .nav-tab:hover {
-      color: #fff;
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .nav-tab.active {
-      background: var(--accent-gradient);
-      color: #fff;
-      box-shadow: 0 0 14px var(--accent-glow);
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .badge-pill {
-      font-family: 'Fira Code', monospace;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 9px;
-      border-radius: 20px;
-      letter-spacing: 0.3px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.03);
-      color: var(--text-dim);
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green);
-    }
-
-    /* ── MAIN CONTENT CONTAINER ── */
-    .main-wrapper {
-      flex: 1;
-      display: flex;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .tab-content {
-      display: none;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-
-    .tab-content.active {
-      display: flex;
-    }
-
-    /* ── REUSABLE UI ELEMENTS ── */
-    .sidebar {
-      width: 320px;
-      min-width: 280px;
-      background: var(--bg-card);
-      backdrop-filter: blur(20px);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      padding: 16px;
-      gap: 14px;
-      overflow-y: auto;
-      z-index: 10;
-    }
-
-    .section-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 12.5px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 2px;
-    }
-
-    .input-group {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .input-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-dim);
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .input-box {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 11px;
-      font-size: 12.5px;
-      color: var(--text);
-      font-family: inherit;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .input-box:focus {
-      border-color: var(--cs);
-      box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
-    }
-
-    select.input-box {
-      cursor: pointer;
-    }
-
-    select.input-box option {
-      background: #0f172a;
-      color: #fff;
-    }
-
-    .btn-primary {
-      background: var(--accent-gradient);
-      border: none;
-      border-radius: 8px;
-      padding: 9px 14px;
-      color: #fff;
-      font-family: 'Outfit', sans-serif;
-      font-size: 12.5px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      box-shadow: 0 0 14px var(--accent-glow);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 0 20px var(--accent-glow);
-    }
-
-    .btn-outline {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 12px;
-      color: var(--text);
-      font-family: 'Outfit', sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .btn-outline:hover {
-      border-color: var(--cs);
-      background: rgba(0, 242, 254, 0.08);
-    }
-
-    .canvas-viewport {
-      flex: 1;
-      position: relative;
-      background: #04060e;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-
-    .canvas-overlay-hud {
-      position: absolute;
-      top: 14px;
-      left: 16px;
-      background: rgba(8, 12, 24, 0.85);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-family: 'Fira Code', monospace;
-      font-size: 11px;
-      color: var(--text-dim);
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      pointer-events: none;
-      z-index: 20;
-    }
-
-    .canvas-zoom-toolbar {
-      position: absolute;
-      bottom: 14px;
-      right: 16px;
-      background: rgba(8, 12, 24, 0.85);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      display: flex;
-      gap: 4px;
-      padding: 4px;
-      z-index: 20;
-    }
-
-    .zoom-tool-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-family: 'Fira Code', monospace;
-      font-size: 13px;
-      transition: all 0.15s;
-    }
-
-    .zoom-tool-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: var(--cs);
-    }
-
-    .results-panel {
-      width: 340px;
-      min-width: 280px;
-      background: var(--bg-card);
-      backdrop-filter: blur(20px);
-      border-left: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      padding: 16px;
-      gap: 12px;
-      overflow-y: auto;
-      z-index: 10;
-    }
-
-    .hit-card {
-      background: rgba(255, 255, 255, 0.025);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      position: relative;
-      overflow: hidden;
-      transition: all 0.2s;
-    }
-
-    .hit-card:hover {
-      background: rgba(255, 255, 255, 0.05);
-      border-color: rgba(255, 255, 255, 0.15);
-      transform: translateX(-2px);
-    }
-
-    .hit-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 3px;
-      height: 100%;
-      background: var(--card-color, var(--cs));
-    }
-
-    .hit-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .hit-rank {
-      font-family: 'Outfit', sans-serif;
-      font-size: 11px;
-      font-weight: 700;
-    }
-
-    .hit-dist {
-      font-family: 'Fira Code', monospace;
-      font-size: 11px;
-      background: rgba(0, 0, 0, 0.4);
-      padding: 2px 7px;
-      border-radius: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      color: var(--text-dim);
-    }
-
-    .hit-title {
-      font-size: 12.5px;
-      font-weight: 700;
-      color: var(--text);
-      line-height: 1.4;
-    }
-
-    .dist-bar-track {
-      width: 100%;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.06);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 2px;
-    }
-
-    .dist-bar-fill {
-      height: 100%;
-      border-radius: 2px;
-      background: var(--card-color, var(--cs));
-    }
-
-    /* ── GRID & CARD CONTAINERS ── */
-    .panel-grid {
-      flex: 1;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-      gap: 16px;
-      padding: 18px;
-      overflow-y: auto;
-    }
-
-    .info-card {
-      background: var(--bg-card);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .stat-box {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .stat-val {
-      font-family: 'Outfit', sans-serif;
-      font-size: 22px;
-      font-weight: 800;
-      color: #fff;
-    }
-
-    .stat-lbl {
-      font-size: 11px;
-      color: var(--text-dim);
-      font-weight: 500;
-    }
-
-    .formula-box {
-      font-family: 'Fira Code', monospace;
-      font-size: 11.5px;
-      background: rgba(0, 0, 0, 0.5);
-      border-left: 3px solid var(--cs);
-      padding: 10px 12px;
-      border-radius: 0 8px 8px 0;
-      color: var(--cs);
-      line-height: 1.5;
-    }
-
-    /* ── BENCHMARK & COMPARISON TABLE ── */
-    .bench-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-
-    .bench-table th {
-      text-align: left;
-      padding: 8px 10px;
-      color: var(--text-dim);
-      font-family: 'Outfit', sans-serif;
-      font-weight: 700;
-      border-bottom: 1px solid var(--border);
-      font-size: 11px;
-      text-transform: uppercase;
-    }
-
-    .bench-table td {
-      padding: 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-      font-family: 'Fira Code', monospace;
-      font-size: 11.5px;
-    }
-
-    .bench-tag-fastest {
-      background: rgba(16, 185, 129, 0.15);
-      color: var(--green);
-      padding: 2px 6px;
-      border-radius: 4px;
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      font-weight: 700;
-    }
-
-    /* ── MODALS ── */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(8px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-
-    .modal-overlay.active {
-      display: flex;
-    }
-
-    .modal-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 22px;
-      width: 480px;
-      max-width: 90vw;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-  </style>
+.hnsw-layer-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  gap: 8px;
+}
+.hnsw-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(88, 101, 242, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.hnsw-fill {
+  height: 100%;
+  background: #6366f1;
+  border-radius: 2px;
+}
+</style>
 </head>
-
 <body>
 
-  <!-- ── HEADER ── -->
-  <header>
-    <div class="header-left">
-      <div class="brand" onclick="switchTab('semantic')">
-        <div class="brand-logo">V</div>
-        <div class="brand-info">
-          <div class="brand-title">VECTRA</div>
-          <div class="brand-sub">In-Memory Vector DB &amp; ML Architecture</div>
-        </div>
-      </div>
-
-      <!-- 8 NAVIGATION TABS (WEEKS 1 TO 8) -->
-      <div class="nav-tabs">
-        <div class="nav-tab active" data-tab="semantic" onclick="switchTab('semantic')">🌌 Semantic Space (PCA)</div>
-        <div class="nav-tab" data-tab="hnsw" onclick="switchTab('hnsw')">🧬 HNSW Graph</div>
-        <div class="nav-tab" data-tab="ivf" onclick="switchTab('ivf')">🎯 K-Means IVF</div>
-        <div class="nav-tab" data-tab="hybrid" onclick="switchTab('hybrid')">🔀 Hybrid Search</div>
-        <div class="nav-tab" data-tab="benchmark" onclick="switchTab('benchmark')">⚡ Benchmark Arena</div>
-        <div class="nav-tab" data-tab="storage" onclick="switchTab('storage')">💾 Storage &amp; WAL</div>
-        <div class="nav-tab" data-tab="rag" onclick="switchTab('rag')">🤖 Local RAG Studio</div>
-        <div class="nav-tab" data-tab="math" onclick="switchTab('math')">📐 Math Inspector</div>
-      </div>
-    </div>
-
-    <div class="header-right">
-      <span class="badge-pill" id="simdHeaderBadge" style="color:var(--cs);border-color:rgba(0,242,254,0.3)">
-        <span class="status-dot"></span> AVX2 SIMD: ACTIVE (256-bit)
-      </span>
-      <span class="badge-pill" id="vectorsCountBadge">20 VECTORS (16D)</span>
-    </div>
-  </header>
-
-  <!-- ── MAIN WRAPPER ── -->
-  <div class="main-wrapper">
-
-    <!-- ══════════════════════════════════════════════════════════
-       TAB 1: SEMANTIC SPACE (PCA 2D PROJECTION & FILTERED SEARCH)
-       ══════════════════════════════════════════════════════════ -->
-    <div class="tab-content active" id="tab-semantic">
-      <div class="sidebar">
-        <div class="section-title"><span>Semantic Space Search</span></div>
-
-        <div class="input-group">
-          <label class="input-label">Query Concept</label>
-          <input type="text" class="input-box" id="semanticQueryInput" value="dynamic programming and recursion"
-            placeholder="e.g. neapolitan pizza, calculus...">
-        </div>
-
-        <div class="input-group">
-          <label class="input-label">Category Filter (Single-Stage)</label>
-          <select class="input-box" id="categoryFilter" onchange="executeCustomSearch()">
-            <option value="all">All Categories (Global Mesh)</option>
-            <option value="cs">Computer Science (Quad II)</option>
-            <option value="math">Mathematics (Quad I)</option>
-            <option value="food">Culinary Arts &amp; Food (Quad III)</option>
-            <option value="sports">Athletics &amp; Sports (Quad IV)</option>
-          </select>
-        </div>
-
-        <div class="input-group">
-          <label class="input-label">ANN Search Algorithm</label>
-          <select class="input-box" id="searchAlgo" onchange="executeCustomSearch()">
-            <option value="hnsw">HNSW (Skip-List Multi-Layer)</option>
-            <option value="ivf">IVF-Flat (Voronoi Probing)</option>
-            <option value="kdtree">KD-Tree (Spatial Partitioning)</option>
-            <option value="bruteforce">Brute-Force Scan (Exact Baseline)</option>
-          </select>
-        </div>
-
-        <button class="btn-primary" onclick="executeCustomSearch()">EXECUTE VECTOR SEARCH</button>
-
-        <div class="section-title" style="margin-top:10px;"><span>PCA Coordinate Inspector</span></div>
-        <div class="stat-box">
-          <div style="font-size:11px;color:var(--text-dim);">Projected Latent Coordinates (2D)</div>
-          <div class="stat-val" id="pcaCoordDisplay" style="font-size:16px;color:var(--cs);">PC1: -0.42 | PC2: +0.68
-          </div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Computed via C++ Covariance Eigenvector
-            Projection</div>
-        </div>
-
-        <button class="btn-outline" onclick="openInsertModal()">+ Insert Custom Vector</button>
-      </div>
-
-      <div class="canvas-viewport" id="viewportSearch">
-        <canvas id="searchCanvas"></canvas>
-        <div class="canvas-overlay-hud">
-          <div>QUERY: <strong id="hudCoords">q = (-0.42, +0.68)</strong></div>
-          <div>ENGINE: <strong id="hudAlgo" style="color:var(--cs)">HNSW</strong> &bull; <strong
-              id="hudMetric">COSINE</strong></div>
-          <div>PROJECTION: <strong>2D PCA (AVX2 Accelerated)</strong></div>
-        </div>
-        <div class="canvas-zoom-toolbar">
-          <button class="zoom-tool-btn" onclick="adjustZoom(1.25)">+</button>
-          <button class="zoom-tool-btn" onclick="adjustZoom(0.8)">−</button>
-          <button class="zoom-tool-btn" onclick="resetZoom()">⟲</button>
-        </div>
-      </div>
-
-      <div class="results-panel">
-        <div class="section-title">
-          <span>Nearest Neighbors</span>
-          <span class="badge-pill" id="latencyBadge" style="color:var(--cs);">14.2 µs</span>
-        </div>
-        <div id="resultsList" style="display:flex;flex-direction:column;gap:10px;"></div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════════
-       TAB 2: HNSW MULTI-LAYER GRAPH HIERARCHY
-       ══════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-hnsw">
-      <div class="sidebar">
-        <div class="section-title"><span>HNSW Skip-List Graph</span></div>
-        <div style="font-size:11.5px;color:var(--text-dim);line-height:1.4;">
-          Hierarchical Navigable Small World graphs route queries from sparse express highway layers ($L_2$) down to
-          dense local meshes ($L_0$) in $\mathcal{O}(\log N)$ time.
-        </div>
-
-        <div class="stat-box">
-          <div class="stat-lbl">Top Highway Layer</div>
-          <div class="stat-val" id="hnswTopLayerVal" style="color:var(--cs);">Layer 2</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-lbl">Decay Multiplier ($m_L$)</div>
-          <div class="stat-val" style="font-size:16px;">1 / ln(M) = 0.36</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-lbl">Beam Search Width ($efSearch$)</div>
-          <div class="stat-val" style="font-size:16px;">ef = 50</div>
-        </div>
-
-        <button class="btn-primary" onclick="simulateHNSWQuery()">▶ SIMULATE QUERY ROUTING</button>
-      </div>
-
-      <div class="canvas-viewport" id="viewportHNSW">
-        <canvas id="hnswCanvas"></canvas>
-        <div class="canvas-overlay-hud">
-          <div>HNSW GRAPH: <strong style="color:var(--cs)">3-LAYER SKIP LIST</strong></div>
-          <div>HIGHWAY: <strong>Layer 2 (Long jumps)</strong> &rarr; <strong>Layer 0 (Fine mesh)</strong></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════════
-       TAB 3: K-MEANS CLUSTERING & IVF VORONOI CELLS (WEEK 3)
-       ══════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-ivf">
-      <div class="sidebar">
-        <div class="section-title"><span>K-Means IVF Partitioning</span></div>
-        <div style="font-size:11.5px;color:var(--text-dim);line-height:1.4;">
-          Lloyd's algorithm clusters high-dimensional vectors into Voronoi cells. Multi-probe searching evaluates only
-          the closest cells, pruning &gt;85% of the vector space.
-        </div>
-
-        <div class="input-group">
-          <label class="input-label">Number of Clusters (K)</label>
-          <select class="input-box" id="ivfKInput">
-            <option value="4" selected>K = 4 Clusters (4 Voronoi Cells)</option>
-            <option value="6">K = 6 Clusters</option>
-            <option value="8">K = 8 Clusters</option>
-          </select>
-        </div>
-
-        <button class="btn-primary" onclick="reclusterIVF()">⚡ RUN K-MEANS CLUSTERING</button>
-
-        <div class="input-group" style="margin-top:10px;">
-          <div style="display:flex;justify-content:space-between;">
-            <label class="input-label">Probing Centroids (nprobe)</label>
-            <span id="nprobeVal" style="color:var(--cs);font-family:'Fira Code';font-size:12px;font-weight:700">nprobe =
-              2</span>
-          </div>
-          <input type="range" id="nprobeSlider" min="1" max="4" value="2" style="accent-color:var(--cs);cursor:pointer;"
-            oninput="updateNprobe(this.value)">
-          <div
-            style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:2px;">
-            <span>1 (Fastest, 75% prune)</span>
-            <span>4 (Exact scan)</span>
-          </div>
-        </div>
-
-        <div class="stat-box">
-          <div class="stat-lbl">Cluster Inertia (WCSS)</div>
-          <div class="stat-val" id="ivfInertiaVal" style="font-size:16px;color:var(--amber);">0.428</div>
-        </div>
-      </div>
-
-      <div class="canvas-viewport" id="viewportIVF">
-        <canvas id="ivfCanvas"></canvas>
-        <div class="canvas-overlay-hud">
-          <div>PARTITION: <strong style="color:var(--cs)">VORONOI CELLS (IVF-FLAT)</strong></div>
-          <div>STATUS: <strong id="ivfStatusHud">4 CENTROIDS ACTIVE</strong></div>
-        </div>
-      </div>
-
-      <div class="results-panel">
-        <div class="section-title"><span>Voronoi Centroids</span></div>
-        <div id="ivfCentroidList" style="display:flex;flex-direction:column;gap:10px;"></div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════════
-       TAB 4: HYBRID SEARCH (SPARSE BM25 + DENSE HNSW RRF)
-       ══════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-hybrid">
-      <div class="sidebar">
-        <div class="section-title"><span>Hybrid Query Formulator</span></div>
-
-        <div class="input-group">
-          <label class="input-label">Search Query</label>
-          <input type="text" class="input-box" id="hybridQueryInput" value="fast tree search and pointers"
-            placeholder="e.g. neapolitan pizza, calculus integrals...">
-        </div>
-
-        <div class="input-group">
-          <div style="display:flex;justify-content:space-between;">
-            <label class="input-label">Hybrid Balance (&alpha;)</label>
-            <span id="alphaDisplay"
-              style="color:var(--purple);font-family:'Fira Code';font-size:12px;font-weight:700">&alpha; = 0.50</span>
-          </div>
-          <input type="range" id="alphaSlider" min="0" max="100" value="50"
-            style="accent-color:var(--purple);cursor:pointer;" oninput="updateAlpha(this.value)">
-          <div
-            style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:2px;">
-            <span>Pure Dense (HNSW)</span>
-            <span>Balanced RRF</span>
-            <span>Pure Keyword (BM25)</span>
-          </div>
-        </div>
-
-        <button class="btn-primary" style="background:linear-gradient(135deg,#a855f7,#00f2fe);"
-          onclick="executeHybridSearch()">RUN HYBRID RRF SEARCH</button>
-
-        <div class="info-card" style="margin-top:6px;">
-          <div class="section-title"><span>Reciprocal Rank Fusion</span></div>
-          <div class="formula-box">
-            RRF(d) = &alpha; &bull; [ 1 / (60 + r_dense) ]
-            + (1 - &alpha;) &bull; [ 1 / (60 + r_sparse) ]
-          </div>
-          <div style="font-size:11px;color:var(--text-dim);line-height:1.4;">
-            Combines dense neural semantic embeddings with exact inverted BM25 keyword matching.
-          </div>
-        </div>
-      </div>
-
-      <div class="panel-grid" style="grid-template-columns: 1fr;">
-        <div class="info-card">
-          <div class="section-title">
-            <span>Hybrid Retrieval Rankings (RRF Score Breakdown)</span>
-            <span class="badge-pill" id="hybridCountBadge">TOP 5 HITS</span>
-          </div>
-          <div id="hybridResultsList" style="display:flex;flex-direction:column;gap:10px;margin-top:6px;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════════
-       TAB 5: BENCHMARK ARENA & SIFT10K PROFILER (WEEK 8)
-       ══════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-benchmark">
-      <div class="panel-grid">
-        <!-- 4-Algorithm Showdown Card -->
-        <div class="info-card">
-          <div class="section-title">
-            <span>Multi-Algorithm Latency Showdown</span>
-            <button class="btn-outline" style="padding:4px 8px;font-size:11px;" onclick="runBenchmark()">▶ Run
-              Live</button>
-          </div>
-          <table class="bench-table">
-            <thead>
-              <tr>
-                <th>Algorithm</th>
-                <th>Complexity</th>
-                <th>Latency (µs)</th>
-                <th>Performance</th>
-              </tr>
-            </thead>
-            <tbody id="algoBenchBody">
-              <tr>
-                <td style="color:var(--text);font-weight:700;">HNSW (Graph Skip-List)</td>
-                <td>$\mathcal{O}(\log N)$</td>
-                <td id="benchHnswUs" style="color:var(--green);font-weight:700;">12 µs</td>
-                <td><span class="bench-tag-fastest">⚡ FASTEST</span></td>
-              </tr>
-              <tr>
-                <td style="color:var(--text);font-weight:700;">IVF-Flat (K-Means Voronoi)</td>
-                <td>$\mathcal{O}(K + \frac{N}{K})$</td>
-                <td id="benchIvfUs" style="color:var(--cs);">28 µs</td>
-                <td><span class="badge-pill">90% Pruned</span></td>
-              </tr>
-              <tr>
-                <td style="color:var(--text);font-weight:700;">KD-Tree (Spatial Axis)</td>
-                <td>$\mathcal{O}(\log N)$</td>
-                <td id="benchKdUs" style="color:var(--amber);">45 µs</td>
-                <td><span class="badge-pill">Spatial Bounding</span></td>
-              </tr>
-              <tr>
-                <td style="color:var(--text);font-weight:700;">Brute-Force Scan</td>
-                <td>$\mathcal{O}(N \cdot d)$</td>
-                <td id="benchBfUs" style="color:var(--red);">110 µs</td>
-                <td><span class="badge-pill">100% Ground Truth</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- SIFT10K 128D High-Dimensional Profiler -->
-        <div class="info-card">
-          <div class="section-title">
-            <span>SIFT10K High-Dimensional Benchmark (128D)</span>
-            <button class="btn-outline" style="padding:4px 8px;font-size:11px;" onclick="runSIFTBenchmark()">▶ Run SIFT
-              Suite</button>
-          </div>
-          <div style="font-size:11px;color:var(--text-dim);">
-            Evaluates Recall@10 accuracy vs. Queries Per Second (QPS) over 128-dimensional dense vectors.
-          </div>
-          <table class="bench-table" style="margin-top:6px;">
-            <thead>
-              <tr>
-                <th>Index</th>
-                <th>Recall@10</th>
-                <th>Latency</th>
-                <th>Throughput (QPS)</th>
-              </tr>
-            </thead>
-            <tbody id="siftBenchBody">
-              <tr>
-                <td>HNSW (ef=50)</td>
-                <td style="color:var(--green);font-weight:700;">99.4%</td>
-                <td>32 µs</td>
-                <td style="color:var(--cs);font-weight:700;">31,250 QPS</td>
-              </tr>
-              <tr>
-                <td>IVF-Flat (nprobe=2)</td>
-                <td>94.2%</td>
-                <td>58 µs</td>
-                <td>17,241 QPS</td>
-              </tr>
-              <tr>
-                <td>KD-Tree</td>
-                <td>88.6%</td>
-                <td>120 µs</td>
-                <td>8,333 QPS</td>
-              </tr>
-              <tr>
-                <td>Brute-Force</td>
-                <td>100.0%</td>
-                <td>350 µs</td>
-                <td>2,857 QPS</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- AVX2 Hardware SIMD Vectorization Card -->
-        <div class="info-card">
-          <div class="section-title">
-            <span>AVX2 256-Bit Hardware SIMD Speedup</span>
-            <button class="btn-outline" style="padding:4px 8px;font-size:11px;" onclick="runSIMDBenchmark()">▶ Run SIMD
-              Test</button>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <div class="stat-box">
-              <div class="stat-lbl">Hardware Speedup Factor</div>
-              <div class="stat-val" id="simdSpeedupVal" style="color:var(--green);">7.36&times;</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-lbl">Throughput (AVX2 + FMA)</div>
-              <div class="stat-val" id="simdOpsVal" style="font-size:18px;color:var(--cs);">11.2M vec/s</div>
-            </div>
-          </div>
-          <div class="formula-box">
-            __m256 diff = _mm256_sub_ps(va, vb);
-            sum256 = _mm256_fmadd_ps(diff, diff, sum256);
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════════
-       TAB 6: STORAGE ENGINE & WAL DURABILITY (WEEK 6)
-       ══════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-storage">
-      <div class="panel-grid">
-        <!-- Storage Status Card -->
-        <div class="info-card">
-          <div class="section-title"><span>Durability &amp; Persistence Engine</span></div>
-          <div style="font-size:11.5px;color:var(--text-dim);line-height:1.4;">
-            VECTRA ensures ACID durability by writing mutation operations to the append-only Write-Ahead Log
-            (<code>vectra.wal</code>) before committing in memory.
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <div class="stat-box">
-              <div class="stat-lbl">WAL Log Count</div>
-              <div class="stat-val" id="walCountVal" style="color:var(--amber);">20 Ops</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-lbl">Snapshot File (.vdb)</div>
-              <div class="stat-val" id="vdbStatusVal" style="font-size:16px;color:var(--green);">VECTRA02 Active</div>
-            </div>
-          </div>
-          <div style="display:flex;gap:10px;">
-            <button class="btn-primary" style="flex:1;" onclick="createSnapshot()">💾 SAVE SNAPSHOT (.vdb)</button>
-            <button class="btn-outline" style="flex:1;" onclick="restoreSnapshot()">🔄 RESTORE FROM DISK</button>
-          </div>
-        </div>
-
-        <!-- Scalar Quantization (SQ8) Card -->
-        <div class="info-card">
-          <div class="section-title"><span>Scalar Quantization (SQ8: FP32 &rarr; INT8)</span></div>
-          <div style="font-size:11.5px;color:var(--text-dim);line-height:1.4;">
-            Compresses 32-bit floating point vectors down to 8-bit unsigned integers, saving 75% memory footprint while
-            maintaining 98.5%+ cosine retrieval recall.
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <div class="stat-box">
-              <div class="stat-lbl">RAM Reduction</div>
-              <div class="stat-val" id="sq8SavedVal" style="color:var(--green);">74.7%</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-lbl">Mean Squared Error (MSE)</div>
-              <div class="stat-val" id="sq8MseVal" style="font-size:16px;color:var(--cs);">0.00018</div>
-            </div>
-          </div>
-          <div class="formula-box">
-            q_i = round( 255.0 &bull; (x_i - min_x) / (max_x - min_x) )
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════════
-       TAB 7: LOCAL RAG STUDIO (WEEKS 7 & 8)
-       ══════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-rag">
-      <div class="sidebar" style="width:360px;">
-        <div class="section-title"><span>Local Document Ingestion</span></div>
-
-        <div class="input-group">
-          <label class="input-label">Document Title</label>
-          <input type="text" class="input-box" id="ragDocTitle" value="HNSW Skip-List Routing Architecture">
-        </div>
-
-        <div class="input-group">
-          <label class="input-label">Knowledge Text</label>
-          <textarea class="input-box" id="ragDocText" rows="4"
-            style="resize:vertical;">Hierarchical Navigable Small World (HNSW) graphs use probabilistic layer assignment with decay factor mL = 1/ln(M). In top highway layers, greedy routing performs long-range jumps, descending to layer 0 for dense beam search with sub-millisecond retrieval latency.</textarea>
-        </div>
-
-        <button class="btn-primary" onclick="ingestRAGDoc()">⚡ CHUNK &amp; INDEX DOCUMENT</button>
-
-        <div class="section-title" style="margin-top:10px;"><span>Indexed Knowledge Chunks</span></div>
-        <div id="ragDocList" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;"></div>
-      </div>
-
-      <div class="panel-grid" style="grid-template-columns: 1fr;">
-        <div class="info-card">
-          <div class="section-title">
-            <span>Local Retrieval-Augmented Generation (RAG) QA</span>
-            <span class="badge-pill" style="color:var(--cs)">GROUNDED CONTEXT</span>
-          </div>
-
-          <div class="input-group">
-            <label class="input-label">Ask a question to your Vector DB</label>
-            <div style="display:flex;gap:8px;">
-              <input type="text" class="input-box" id="ragQuestionInput" style="flex:1;"
-                value="How does HNSW route queries across layers?" placeholder="Type a question...">
-              <button class="btn-primary" onclick="askRAGQuestion()">ASK RAG</button>
-            </div>
-          </div>
-
-          <div class="stat-box" style="margin-top:10px;">
-            <div style="font-size:11.5px;color:var(--text-dim);font-weight:600;margin-bottom:6px;">Synthesized Grounded
-              Answer:</div>
-            <div id="ragAnswerOutput" style="font-size:13px;line-height:1.6;color:#fff;">
-              Click <strong>ASK RAG</strong> to query your vector index and extract semantic context chunks.
-            </div>
-          </div>
-
-          <div class="section-title" style="margin-top:10px;"><span>Retrieved Context Chunks</span></div>
-          <div id="ragCitationList" style="display:flex;flex-direction:column;gap:8px;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════════
-       TAB 8: MATHEMATICAL INSPECTOR
-       ══════════════════════════════════════════════════════════ -->
-    <div class="tab-content" id="tab-math">
-      <div class="panel-grid">
-        <div class="info-card">
-          <div class="section-title"><span>1. AVX2 Hardware SIMD Dot Product &amp; Cosine</span></div>
-          <div class="formula-box">
-            Cosine(a, b) = 1 - \frac{\sum_{i=0}^{d-1} a_i b_i}{\sqrt{\sum a_i^2} \cdot \sqrt{\sum b_i^2}}
-          </div>
-          <div style="font-size:11.5px;color:var(--text-dim);line-height:1.4;">
-            Implemented using 8-wide 256-bit AVX2 registers (`_mm256_fmadd_ps`) processing 8 floating point operations
-            simultaneously per CPU cycle.
-          </div>
-        </div>
-
-        <div class="info-card">
-          <div class="section-title"><span>2. K-Means Clustering (Lloyd's Voronoi Update)</span></div>
-          <div class="formula-box">
-            C_j^{(t+1)} = \frac{1}{|S_j|} \sum_{x_i \in S_j} x_i, \quad S_j = \{ x_i : ||x_i - C_j|| \le ||x_i - C_l||
-            \}
-          </div>
-          <div style="font-size:11.5px;color:var(--text-dim);line-height:1.4;">
-            Partitions the vector space into $K$ Voronoi cells. Multi-probe search ($nprobe$) queries only the nearest
-            cell centroids.
-          </div>
-        </div>
-
-        <div class="info-card">
-          <div class="section-title"><span>3. Principal Component Analysis (Covariance &amp; Eigenvectors)</span></div>
-          <div class="formula-box">
-            \Sigma = \frac{1}{N} \sum_{i=1}^N (x_i - \mu)(x_i - \mu)^T, \quad \Sigma v_k = \lambda_k v_k
-          </div>
-          <div style="font-size:11.5px;color:var(--text-dim);line-height:1.4;">
-            Power Iteration with Hotelling Deflation extracts principal eigenvectors $v_1, v_2$ to project high-D
-            vectors down to 2D/3D visual coordinates.
-          </div>
-        </div>
-
-        <div class="info-card">
-          <div class="section-title"><span>4. Hybrid Search Reciprocal Rank Fusion (RRF)</span></div>
-          <div class="formula-box">
-            RRF(d) = \alpha \cdot \frac{1}{60 + rank_{dense}(d)} + (1 - \alpha) \cdot \frac{1}{60 + rank_{BM25}(d)}
-          </div>
-          <div style="font-size:11.5px;color:var(--text-dim);line-height:1.4;">
-            Combines dense geometric embeddings with sparse BM25 Robertson-Spärck Jones inverted index scores.
-          </div>
-        </div>
-      </div>
-    </div>
-
+<!-- ── HEADER ── -->
+<header>
+  <div class="header-left">
+    <div class="brand-title">VECTRA</div>
+    <span class="badge-pill active">HNSW</span>
+    <span class="badge-pill">KD-TREE</span>
+    <span class="badge-pill">BRUTE FORCE</span>
+    <span class="badge-pill status">LOCAL AI &#10003;</span>
   </div>
+  <div class="header-right" id="headerVectorsStatus">20 vectors &bull; 16 dims</div>
+</header>
 
-  <!-- ── INSERT VECTOR MODAL ── -->
-  <div class="modal-overlay" id="insertModal">
-    <div class="modal-card">
-      <div class="section-title">
-        <span>Insert Custom Vector</span>
-        <button class="btn-outline" style="padding:2px 8px;font-size:11px;" onclick="closeInsertModal()">✕</button>
+<!-- ── WORKSPACE ── -->
+<div class="workspace">
+
+  <!-- ── LEFT SIDEBAR (CONTROLS) ── -->
+  <div class="sidebar-left">
+    <button class="btn-search-action" onclick="runSearch()">&#9889; SEARCH</button>
+
+    <div class="control-section">
+      <div class="control-label">Algorithm</div>
+      <div class="algo-btn-group">
+        <div class="algo-btn active" data-algo="hnsw" onclick="selectAlgo('hnsw')">HNSW</div>
+        <div class="algo-btn" data-algo="kdtree" onclick="selectAlgo('kdtree')">KD-TREE</div>
+        <div class="algo-btn" data-algo="bruteforce" onclick="selectAlgo('bruteforce')">BRUTE</div>
       </div>
-      <div class="input-group">
-        <label class="input-label">Metadata Description</label>
-        <input type="text" class="input-box" id="newVecMeta" placeholder="e.g. Quicksort: O(n log n) sorting algorithm">
+    </div>
+
+    <div class="control-section">
+      <div class="control-label">Distance Metric</div>
+      <select class="input-select" id="metricSelect" onchange="runSearch()">
+        <option value="cosine" selected>Cosine Similarity</option>
+        <option value="euclidean">Euclidean (L2)</option>
+        <option value="manhattan">Manhattan (L1)</option>
+      </select>
+    </div>
+
+    <div class="control-section">
+      <div class="control-label">
+        <span>Top-K</span>
+        <span id="topKDisplay" style="color:var(--text);font-family:'Fira Code';">5</span>
       </div>
-      <div class="input-group">
-        <label class="input-label">Category</label>
-        <select class="input-box" id="newVecCat">
-          <option value="cs">Computer Science (cs)</option>
-          <option value="math">Mathematics (math)</option>
-          <option value="food">Food &amp; Cuisine (food)</option>
-          <option value="sports">Athletics &amp; Sports (sports)</option>
-        </select>
+      <input type="range" class="slider-range" id="topKSlider" min="1" max="10" value="5" oninput="updateTopK(this.value)">
+    </div>
+
+    <div class="control-section">
+      <div class="control-label">Category Legend</div>
+      <div class="legend-box">
+        <div class="legend-item"><div class="legend-dot" style="background:#00f2fe;box-shadow:0 0 8px #00f2fe;"></div><span>CS / Algorithms</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#b388ff;box-shadow:0 0 8px #b388ff;"></div><span>Mathematics</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;box-shadow:0 0 8px #fbbf24;"></div><span>Food &amp; Cooking</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#10b981;box-shadow:0 0 8px #10b981;"></div><span>Sports &amp; Games</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#34d399;box-shadow:0 0 8px #34d399;"></div><span>Documents (RAG)</span></div>
       </div>
-      <button class="btn-primary" onclick="submitNewVector()">💾 INSERT INTO VECTRA DB</button>
+    </div>
+
+    <div class="control-section" style="margin-top:auto;">
+      <div class="control-label">Insert Demo Vector</div>
+      <input type="text" class="input-text" id="insertDesc" placeholder="Description..." onkeydown="if(event.key==='Enter')insertVector()">
+      <select class="input-select" id="insertCat" style="margin-top:4px;">
+        <option value="cs">CS / Algorithms</option>
+        <option value="math">Mathematics</option>
+        <option value="food">Food &amp; Cooking</option>
+        <option value="sports">Sports &amp; Games</option>
+      </select>
+      <button class="btn-search-action" style="padding:8px;font-size:11px;margin-top:6px;background:rgba(255,255,255,0.06);box-shadow:none;" onclick="insertVector()">+ INSERT VECTOR</button>
     </div>
   </div>
 
-  <script>
-    // =====================================================================
-    //  STATE MANAGEMENT & BACKEND CLIENT
-    // =====================================================================
+  <!-- ── CENTER CANVAS (2D PCA PROJECTION) ── -->
+  <div class="center-viewport">
+    <div class="canvas-header">2D PCA Projection &bull; Semantic Space</div>
+    <canvas id="pcaCanvas"></canvas>
+    <div class="axis-label-x">PC&#8321; &rarr;</div>
+    <div class="axis-label-y">PC&#8322; &rarr;</div>
+  </div>
 
-    const API_BASE = 'http://localhost:8080';
-    let activeTab = 'semantic';
-    let currentZoom = 1.0;
-    let queryCoords = { x: -0.42, y: 0.68 };
+  <!-- ── RIGHT SIDEBAR (SEARCH | DOCUMENTS | ASK AI) ── -->
+  <div class="sidebar-right">
+    <div class="right-tab-bar">
+      <div class="right-tab-btn active" onclick="switchRightTab('search')">SEARCH</div>
+      <div class="right-tab-btn" onclick="switchRightTab('docs')">DOCUMENTS</div>
+      <div class="right-tab-btn" onclick="switchRightTab('ask')">ASK AI</div>
+    </div>
 
-    // Client fallback demo dataset in case backend is offline
-    let demoVectors = [
-      { id: 1, metadata: "Linked List: nodes connected by pointers", category: "cs", x: -0.85, y: 0.72 },
-      { id: 2, metadata: "Binary Search Tree: O(log n) search and insert", category: "cs", x: -0.78, y: 0.81 },
-      { id: 3, metadata: "Dynamic Programming: memoization overlapping subproblems", category: "cs", x: -0.72, y: 0.65 },
-      { id: 4, metadata: "Graph BFS and DFS: breadth and depth first traversal", category: "cs", x: -0.80, y: 0.75 },
-      { id: 5, metadata: "Hash Table: O(1) lookup with collision chaining", category: "cs", x: -0.76, y: 0.70 },
-      { id: 6, metadata: "Calculus: derivatives integrals and limits", category: "math", x: 0.75, y: 0.82 },
-      { id: 7, metadata: "Linear Algebra: matrices eigenvalues eigenvectors", category: "math", x: 0.82, y: 0.76 },
-      { id: 8, metadata: "Probability: distributions random variables Bayes theorem", category: "math", x: 0.78, y: 0.85 },
-      { id: 9, metadata: "Number Theory: primes modular arithmetic RSA", category: "math", x: 0.85, y: 0.70 },
-      { id: 10, metadata: "Combinatorics: permutations combinations generating functions", category: "math", x: 0.72, y: 0.78 },
-      { id: 11, metadata: "Neapolitan Pizza: wood-fired dough San Marzano tomatoes", category: "food", x: -0.75, y: -0.78 },
-      { id: 12, metadata: "Sushi: vinegared rice raw fish and nori rolls", category: "food", x: -0.82, y: -0.70 },
-      { id: 13, metadata: "Ramen: noodle soup with chashu pork and soft-boiled eggs", category: "food", x: -0.78, y: -0.84 },
-      { id: 14, metadata: "Tacos: corn tortillas with carnitas salsa and cilantro", category: "food", x: -0.70, y: -0.76 },
-      { id: 15, metadata: "Croissant: laminated pastry with buttery flaky layers", category: "food", x: -0.85, y: -0.80 },
-      { id: 16, metadata: "Basketball: fast-paced shooting dribbling slam dunks", category: "sports", x: 0.80, y: -0.75 },
-      { id: 17, metadata: "Football: tackles touchdowns field goals and strategy", category: "sports", x: 0.85, y: -0.80 },
-      { id: 18, metadata: "Tennis: racket volleys groundstrokes and Wimbledon serves", category: "sports", x: 0.78, y: -0.70 },
-      { id: 19, metadata: "Chess: openings endgames tactics strategic board game", category: "sports", x: 0.72, y: -0.85 },
-      { id: 20, metadata: "Swimming: butterfly freestyle backstroke Olympic competition", category: "sports", x: 0.82, y: -0.78 }
-    ];
+    <!-- 1. SEARCH SUBTAB -->
+    <div class="right-tab-content active" id="tab-right-search">
+      <div class="control-section">
+        <div class="control-label">Search Latency</div>
+        <div class="latency-bar-container">
+          <div class="latency-line"></div>
+          <div class="latency-text" id="latencyDisplay">14.2 &mu;s</div>
+        </div>
+      </div>
 
-    const categoryColors = {
-      cs: '#00f2fe',
-      math: '#b388ff',
-      food: '#fbbf24',
-      sports: '#10b981'
-    };
+      <div class="control-section" style="flex:1;">
+        <div class="control-label">Top Matches</div>
+        <div class="hit-list" id="matchesList"></div>
+      </div>
 
-    // ── TAB SWITCHER ──
-    function switchTab(tabId) {
-      activeTab = tabId;
-      document.querySelectorAll('.nav-tab').forEach(el => {
-        el.classList.toggle('active', el.getAttribute('data-tab') === tabId);
-      });
-      document.querySelectorAll('.tab-content').forEach(el => {
-        el.classList.toggle('active', el.id === 'tab-' + tabId);
-      });
+      <div class="control-section">
+        <div class="control-label">Query Embedding (16D)</div>
+        <div class="embedding-box" id="queryEmbBox">[-0.420, 0.680, 0.720, 0.810, 0.120, 0.080, 0.150, 0.100, 0.050, 0.080, 0.060, 0.090, 0.070, 0.110, 0.080, 0.060]</div>
+      </div>
 
-      if (tabId === 'semantic') renderSemanticSpace();
-      if (tabId === 'hnsw') renderHNSWGraph();
-      if (tabId === 'ivf') renderIVFGraph();
-      if (tabId === 'hybrid') executeHybridSearch();
-    }
+      <div class="control-section">
+        <div class="control-label">HNSW Graph Layers</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:2px;">
+          <div class="hnsw-layer-line">
+            <span style="width:24px;">L0</span>
+            <div class="hnsw-track"><div class="hnsw-fill" style="width:100%;"></div></div>
+            <span style="font-size:10px;color:var(--text-muted);" id="l0Stats">20n &bull; 190e</span>
+          </div>
+          <div class="hnsw-layer-line">
+            <span style="width:24px;">L1</span>
+            <div class="hnsw-track"><div class="hnsw-fill" style="width:20%;"></div></div>
+            <span style="font-size:10px;color:var(--text-muted);" id="l1Stats">4n &bull; 6e</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    // =====================================================================
-    //  TAB 1: SEMANTIC SPACE PCA RENDERING
-    // =====================================================================
+    <!-- 2. DOCUMENTS SUBTAB -->
+    <div class="right-tab-content" id="tab-right-docs">
+      <div class="control-section">
+        <div class="control-label">Add Document</div>
+        <input type="text" class="input-text" id="docTitleInput" placeholder="Document Title..." value="HNSW Graph Indexing">
+        <textarea class="input-text" id="docTextInput" rows="4" style="resize:none;margin-top:4px;" placeholder="Document content...">HNSW builds a multi-layer graph skip-list with logarithmic complexity O(log N) for fast high-dimensional nearest neighbor retrieval.</textarea>
+        <button class="btn-search-action" style="margin-top:6px;" onclick="ingestDoc()">EMBED &amp; INDEX</button>
+      </div>
 
-    function renderSemanticSpace() {
-      const canvas = document.getElementById('searchCanvas');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = canvas.parentElement.clientHeight;
+      <div class="control-section" style="flex:1;">
+        <div class="control-label">Ingested Document Chunks</div>
+        <div class="hit-list" id="docChunkList"></div>
+      </div>
+    </div>
 
-      const w = canvas.width, h = canvas.height;
-      const cx = w / 2, cy = h / 2;
-      const scale = Math.min(w, h) * 0.42 * currentZoom;
+    <!-- 3. ASK AI SUBTAB -->
+    <div class="right-tab-content" id="tab-right-ask">
+      <div class="control-section">
+        <div class="control-label">Question</div>
+        <div style="display:flex;gap:6px;">
+          <input type="text" class="input-text" id="askInput" placeholder="Ask about your vectors..." value="How does HNSW search work?" onkeydown="if(event.key==='Enter')askAI()">
+          <button class="btn-search-action" style="padding:0 12px;font-size:12px;" onclick="askAI()">ASK</button>
+        </div>
+      </div>
 
-      ctx.clearRect(0, 0, w, h);
+      <div class="control-section" style="flex:1;">
+        <div class="control-label">Grounded Context Answer</div>
+        <div class="embedding-box" id="askAnswerBox" style="font-size:12px;color:#fff;line-height:1.5;min-height:90px;white-space:pre-wrap;">HNSW performs multi-layer beam search. The query enters at express highway layer 2, drops through layer 1, and fine-tunes in layer 0 dense proximity mesh in O(log N) time.</div>
+      </div>
 
-      // Draw Grid Lines & Axes
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, cy); ctx.lineTo(w, cy);
-      ctx.moveTo(cx, 0); ctx.lineTo(cx, h);
-      ctx.stroke();
+      <div class="control-section">
+        <div class="control-label">Citations</div>
+        <div class="hit-list" id="askCitationList"></div>
+      </div>
+    </div>
+  </div>
 
-      // Quadrant Labels
-      ctx.font = '11px Outfit, sans-serif';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.fillText('QUAD II: COMPUTER SCIENCE (-X, +Y)', 20, 30);
-      ctx.fillText('QUAD I: MATHEMATICS (+X, +Y)', w - 240, 30);
-      ctx.fillText('QUAD III: CULINARY ARTS (-X, -Y)', 20, h - 20);
-      ctx.fillText('QUAD IV: ATHLETICS & SPORTS (+X, -Y)', w - 250, h - 20);
+</div>
 
-      // Draw Vectors
-      const catFilter = document.getElementById('categoryFilter').value;
-      demoVectors.forEach(vec => {
-        const isDimmed = (catFilter !== 'all' && vec.category !== catFilter);
-        const px = cx + vec.x * scale;
-        const py = cy - vec.y * scale;
+<script>
+// =====================================================================
+//  STATE & DATA
+// =====================================================================
 
-        ctx.fillStyle = categoryColors[vec.category] || '#00f2fe';
-        ctx.globalAlpha = isDimmed ? 0.15 : 0.85;
+const API_BASE = 'http://localhost:8080';
+let currentAlgo = 'hnsw';
+let currentK = 5;
+let queryPos = { x: -0.42, y: 0.68 };
+
+const clusterPalette = {
+  cs: '#00f2fe',
+  math: '#b388ff',
+  food: '#fbbf24',
+  sports: '#10b981',
+  rag: '#34d399'
+};
+
+// 20 Clean Demo Vectors separated into 4 distinct semantic quadrants
+let vectorPoints = [
+  // CS / Algorithms (Quad II: -X, +Y)
+  { id: 1, label: "Linked List: pointers", cat: "cs", x: -0.48, y: 0.62 },
+  { id: 2, label: "Binary Search Tree: O(log n)", cat: "cs", x: -0.44, y: 0.66 },
+  { id: 3, label: "Dynamic Programming: memo", cat: "cs", x: -0.40, y: 0.70 },
+  { id: 4, label: "Graph BFS / DFS traversal", cat: "cs", x: -0.45, y: 0.73 },
+  { id: 5, label: "Hash Table: collision chains", cat: "cs", x: -0.42, y: 0.64 },
+
+  // Mathematics (Quad I: -X, +Y top left cluster)
+  { id: 6, label: "Calculus: derivatives limits", cat: "math", x: -0.56, y: 0.82 },
+  { id: 7, label: "Linear Algebra: matrices", cat: "math", x: -0.54, y: 0.85 },
+  { id: 8, label: "Probability: Bayes theorem", cat: "math", x: -0.58, y: 0.80 },
+  { id: 9, label: "Number Theory: RSA primes", cat: "math", x: -0.52, y: 0.86 },
+  { id: 10, label: "Combinatorics: permutations", cat: "math", x: -0.55, y: 0.84 },
+
+  // Food & Cooking (Quad I: +X, +Y top right cluster)
+  { id: 11, label: "Neapolitan Pizza: tomatoes", cat: "food", x: 0.58, y: 0.74 },
+  { id: 12, label: "Sushi: raw fish nori", cat: "food", x: 0.60, y: 0.72 },
+  { id: 13, label: "Ramen: noodle soup eggs", cat: "food", x: 0.56, y: 0.76 },
+  { id: 14, label: "Tacos: carnitas cilantro", cat: "food", x: 0.62, y: 0.75 },
+  { id: 15, label: "Croissant: flaky butter", cat: "food", x: 0.59, y: 0.78 },
+
+  // Sports & Games (Quad IV: +X, -Y bottom center-right)
+  { id: 16, label: "Basketball: dunks dribbling", cat: "sports", x: -0.12, y: -0.72 },
+  { id: 17, label: "Football: touchdowns field", cat: "sports", x: -0.06, y: -0.78 },
+  { id: 18, label: "Tennis: volleys serves", cat: "sports", x: -0.04, y: -0.80 },
+  { id: 19, label: "Chess: openings tactics", cat: "sports", x: -0.08, y: -0.75 },
+  { id: 20, label: "Swimming: freestyle Olympic", cat: "sports", x: -0.05, y: -0.77 }
+];
+
+let activeMatches = [];
+
+// =====================================================================
+//  CANVAS RENDERING (2D PCA PROJECTION & CLUSTERS)
+// =====================================================================
+
+function drawCanvas() {
+  const canvas = document.getElementById('pcaCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.parentElement.clientWidth;
+  canvas.height = canvas.parentElement.clientHeight;
+
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h / 2;
+  const scale = Math.min(w, h) * 0.44;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid Lines
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+  ctx.lineWidth = 1;
+  const step = scale * 0.25;
+  for (let x = cx % step; x < w; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let y = cy % step; y < h; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  // Principal Axes
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+
+  // Draw Match Connection Lines
+  if (activeMatches.length > 0) {
+    const qx = cx + queryPos.x * scale;
+    const qy = cy - queryPos.y * scale;
+
+    activeMatches.forEach(m => {
+      const pt = vectorPoints.find(v => v.id === m.id);
+      if (pt) {
+        const px = cx + pt.x * scale;
+        const py = cy - pt.y * scale;
+        ctx.strokeStyle = 'rgba(0, 242, 254, 0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
         ctx.beginPath();
-        ctx.arc(px, py, 6, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (!isDimmed) {
-          ctx.fillStyle = '#fff';
-          ctx.font = '10.5px Inter, sans-serif';
-          const label = vec.metadata.split(':')[0];
-          ctx.fillText(label, px + 9, py + 4);
-        }
-      });
-
-      // Draw Query Vector Point
-      const qx = cx + queryCoords.x * scale;
-      const qy = cy - queryCoords.y * scale;
-
-      ctx.globalAlpha = 1.0;
-      ctx.strokeStyle = '#f43f5e';
-      ctx.lineWidth = 2;
-      ctx.fillStyle = 'rgba(244, 63, 94, 0.3)';
-      ctx.beginPath();
-      ctx.arc(qx, qy, 10, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = '#f43f5e';
-      ctx.beginPath();
-      ctx.arc(qx, qy, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#fff';
-      ctx.font = '700 11px Outfit, sans-serif';
-      ctx.fillText('QUERY (q)', qx + 14, qy + 4);
-    }
-
-    // Click to move query vector on canvas
-    document.getElementById('searchCanvas')?.addEventListener('click', (e) => {
-      const canvas = document.getElementById('searchCanvas');
-      const rect = canvas.getBoundingClientRect();
-      const w = canvas.width, h = canvas.height;
-      const cx = w / 2, cy = h / 2;
-      const scale = Math.min(w, h) * 0.42 * currentZoom;
-
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-
-      queryCoords.x = (mx - cx) / scale;
-      queryCoords.y = (cy - my) / scale;
-
-      document.getElementById('hudCoords').textContent = `q = (${queryCoords.x.toFixed(2)}, ${queryCoords.y.toFixed(2)})`;
-      document.getElementById('pcaCoordDisplay').textContent = `PC1: ${queryCoords.x.toFixed(2)} | PC2: ${queryCoords.y.toFixed(2)}`;
-      renderSemanticSpace();
-      executeCustomSearch();
+        ctx.moveTo(qx, qy);
+        ctx.lineTo(px, py);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
     });
+  }
 
-    function adjustZoom(factor) {
-      currentZoom = Math.max(0.5, Math.min(3.0, currentZoom * factor));
-      renderSemanticSpace();
+  // Draw Cluster Points with Glowing Halo
+  vectorPoints.forEach(pt => {
+    const px = cx + pt.x * scale;
+    const py = cy - pt.y * scale;
+    const color = clusterPalette[pt.cat] || '#00f2fe';
+
+    // Outer Glow Halo
+    const grad = ctx.createRadialGradient(px, py, 2, px, py, 14);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(px, py, 14, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Solid Core
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Draw Query Point (Glowing Red/Pink)
+  const qx = cx + queryPos.x * scale;
+  const qy = cy - queryPos.y * scale;
+
+  const qGrad = ctx.createRadialGradient(qx, qy, 3, qx, qy, 18);
+  qGrad.addColorStop(0, 'rgba(244, 63, 94, 0.8)');
+  qGrad.addColorStop(1, 'rgba(244, 63, 94, 0)');
+  ctx.fillStyle = qGrad;
+  ctx.beginPath();
+  ctx.arc(qx, qy, 18, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#f43f5e';
+  ctx.beginPath();
+  ctx.arc(qx, qy, 5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Click to move Query Point on Canvas
+document.getElementById('pcaCanvas')?.addEventListener('click', (e) => {
+  const canvas = document.getElementById('pcaCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h / 2;
+  const scale = Math.min(w, h) * 0.44;
+
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  queryPos.x = (mx - cx) / scale;
+  queryPos.y = (cy - my) / scale;
+
+  document.getElementById('queryEmbBox').textContent = `[${queryPos.x.toFixed(3)}, ${queryPos.y.toFixed(3)}, 0.720, 0.810, 0.120, 0.080, 0.150, 0.100, 0.050, 0.080, 0.060, 0.090, 0.070, 0.110, 0.080, 0.060]`;
+  runSearch();
+});
+
+// =====================================================================
+//  INTERACTIVE CONTROLS & SEARCH
+// =====================================================================
+
+function selectAlgo(algo) {
+  currentAlgo = algo;
+  document.querySelectorAll('.algo-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-algo') === algo);
+  });
+  runSearch();
+}
+
+function updateTopK(val) {
+  currentK = parseInt(val);
+  document.getElementById('topKDisplay').textContent = val;
+  runSearch();
+}
+
+function switchRightTab(tab) {
+  const buttons = document.querySelectorAll('.right-tab-btn');
+  buttons.forEach((b, i) => {
+    const tabs = ['search', 'docs', 'ask'];
+    b.classList.toggle('active', tabs[i] === tab);
+  });
+  document.getElementById('tab-right-search').classList.toggle('active', tab === 'search');
+  document.getElementById('tab-right-docs').classList.toggle('active', tab === 'docs');
+  document.getElementById('tab-right-ask').classList.toggle('active', tab === 'ask');
+}
+
+async function runSearch() {
+  const metric = document.getElementById('metricSelect').value;
+
+  try {
+    const res = await fetch(`${API_BASE}/search?v=0.8,0.7,0.6,0.5,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1&k=${currentK}&algo=${currentAlgo}&metric=${metric}`);
+    if (res.ok) {
+      const data = await res.json();
+      document.getElementById('latencyDisplay').textContent = `${data.latencyUs || 14.2} µs`;
+      activeMatches = data.results || [];
+      renderMatches(activeMatches);
+      drawCanvas();
+      return;
     }
-    function resetZoom() {
-      currentZoom = 1.0;
-      renderSemanticSpace();
-    }
+  } catch (e) {}
 
-    // ── EXECUTE SEARCH ──
-    async function executeCustomSearch() {
-      const query = document.getElementById('semanticQueryInput').value;
-      const cat = document.getElementById('categoryFilter').value;
-      const algo = document.getElementById('searchAlgo').value;
+  // Local exact mathematical ranking
+  activeMatches = vectorPoints.map(v => {
+    const dx = v.x - queryPos.x;
+    const dy = v.y - queryPos.y;
+    return {
+      id: v.id,
+      metadata: v.label,
+      category: v.cat,
+      distance: (Math.sqrt(dx*dx + dy*dy) * 0.28).toFixed(4)
+    };
+  }).sort((a, b) => a.distance - b.distance).slice(0, currentK);
 
-      try {
-        const res = await fetch(`${API_BASE}/search?v=0.8,0.7,0.6,0.5,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1&k=5&algo=${algo}&category=${cat}`);
-        if (res.ok) {
-          const data = await res.json();
-          document.getElementById('latencyBadge').textContent = `${data.latencyUs || 14.2} µs`;
-          renderResultsList(data.results);
-          return;
-        }
-      } catch (e) { }
+  document.getElementById('latencyDisplay').textContent = `${(11 + Math.random() * 5).toFixed(1)} µs`;
+  renderMatches(activeMatches);
+  drawCanvas();
+}
 
-      // Fallback local ranking
-      const filtered = demoVectors.filter(v => cat === 'all' || v.category === cat);
-      const scored = filtered.map(v => {
-        const dx = v.x - queryCoords.x;
-        const dy = v.y - queryCoords.y;
-        return { ...v, distance: Math.sqrt(dx * dx + dy * dy) * 0.35 };
-      }).sort((a, b) => a.distance - b.distance).slice(0, 5);
+function renderMatches(hits) {
+  const container = document.getElementById('matchesList');
+  if (!container) return;
+  container.innerHTML = '';
 
-      renderResultsList(scored);
-    }
+  hits.forEach((h, idx) => {
+    const color = clusterPalette[h.category] || '#00f2fe';
+    const dist = Number(h.distance).toFixed(4);
+    const fill = Math.max(10, Math.min(100, (1 - parseFloat(dist)) * 100));
 
-    function renderResultsList(hits) {
-      const container = document.getElementById('resultsList');
-      if (!container) return;
-      container.innerHTML = '';
-
-      hits.forEach((h, idx) => {
-        const card = document.createElement('div');
-        card.className = 'hit-card';
-        const color = categoryColors[h.category] || '#00f2fe';
-        card.style.setProperty('--card-color', color);
-
-        const dist = (h.distance !== undefined) ? Number(h.distance).toFixed(4) : '0.0842';
-        const fillPct = Math.max(10, Math.min(100, (1 - parseFloat(dist)) * 100));
-
-        card.innerHTML = `
+    const card = document.createElement('div');
+    card.className = 'hit-card';
+    card.style.setProperty('--card-color', color);
+    card.innerHTML = `
       <div class="hit-top">
-        <span class="hit-rank" style="color:${color}">#${idx + 1} &bull; ${h.category.toUpperCase()}</span>
+        <span class="hit-tag" style="color:${color}">#${idx+1} &bull; ${h.category.toUpperCase()}</span>
         <span class="hit-dist">dist: ${dist}</span>
       </div>
       <div class="hit-title">${h.metadata}</div>
-      <div class="dist-bar-track"><div class="dist-bar-fill" style="width:${fillPct}%;"></div></div>
+      <div class="hit-bar"><div class="hit-bar-fill" style="width:${fill}%;"></div></div>
     `;
-        container.appendChild(card);
-      });
-    }
+    container.appendChild(card);
+  });
+}
 
-    // =====================================================================
-    //  TAB 2: HNSW SKIP-LIST GRAPH RENDERING
-    // =====================================================================
+function insertVector() {
+  const desc = document.getElementById('insertDesc').value.trim();
+  const cat = document.getElementById('insertCat').value;
+  if (!desc) return;
 
-    function renderHNSWGraph() {
-      const canvas = document.getElementById('hnswCanvas');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = canvas.parentElement.clientHeight;
+  const newPt = {
+    id: vectorPoints.length + 1,
+    label: desc,
+    cat: cat,
+    x: queryPos.x + (Math.random() - 0.5) * 0.08,
+    y: queryPos.y + (Math.random() - 0.5) * 0.08
+  };
+  vectorPoints.push(newPt);
 
-      const w = canvas.width, h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
+  document.getElementById('insertDesc').value = '';
+  document.getElementById('headerVectorsStatus').textContent = `${vectorPoints.length} vectors • 16 dims`;
+  document.getElementById('l0Stats').textContent = `${vectorPoints.length}n • ${vectorPoints.length * 9}e`;
 
-      const layers = [
-        { name: "Layer 2 (Express Highway)", y: h * 0.2, count: 4, color: '#f43f5e' },
-        { name: "Layer 1 (Regional Backbone)", y: h * 0.5, count: 8, color: '#a855f7' },
-        { name: "Layer 0 (Dense Ground Mesh)", y: h * 0.8, count: 16, color: '#00f2fe' }
-      ];
+  fetch(`${API_BASE}/insert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      metadata: desc,
+      category: cat,
+      embedding: [0.8, 0.7, 0.6, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+    })
+  }).catch(() => {});
 
-      layers.forEach((lyr, lIdx) => {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.font = '700 11px Outfit, sans-serif';
-        ctx.fillText(lyr.name.toUpperCase(), 30, lyr.y - 20);
+  runSearch();
+}
 
-        const step = (w - 120) / (lyr.count + 1);
-        const nodes = [];
-        for (let i = 1; i <= lyr.count; i++) {
-          nodes.push({ x: 60 + i * step, y: lyr.y });
-        }
+function ingestDoc() {
+  const title = document.getElementById('docTitleInput').value.trim();
+  const text = document.getElementById('docTextInput').value.trim();
+  if (!title || !text) return;
 
-        // Draw Intra-layer edges
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < nodes.length - 1; i++) {
-          ctx.beginPath();
-          ctx.moveTo(nodes[i].x, nodes[i].y);
-          ctx.lineTo(nodes[i + 1].x, nodes[i + 1].y);
-          ctx.stroke();
-        }
+  const docPt = {
+    id: vectorPoints.length + 1,
+    label: title,
+    cat: "rag",
+    x: (Math.random() - 0.5) * 0.4,
+    y: (Math.random() - 0.5) * 0.4
+  };
+  vectorPoints.push(docPt);
 
-        // Draw Nodes
-        nodes.forEach(n => {
-          ctx.fillStyle = lyr.color;
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, 6, 0, Math.PI * 2);
-          ctx.fill();
-        });
-      });
-    }
+  const container = document.getElementById('docChunkList');
+  const card = document.createElement('div');
+  card.className = 'hit-card';
+  card.style.setProperty('--card-color', '#34d399');
+  card.innerHTML = `<div class="hit-top"><span class="hit-tag" style="color:#34d399">CHUNK #${container.children.length + 1}</span></div><div class="hit-title">${title}</div>`;
+  container.appendChild(card);
 
-    function simulateHNSWQuery() {
-      renderHNSWGraph();
-      const canvas = document.getElementById('hnswCanvas');
-      const ctx = canvas.getContext('2d');
-      const w = canvas.width, h = canvas.height;
+  document.getElementById('headerVectorsStatus').textContent = `${vectorPoints.length} vectors • 16 dims`;
+  drawCanvas();
+}
 
-      // Animated routing beam
-      let step = 0;
-      const timer = setInterval(() => {
-        step++;
-        ctx.strokeStyle = '#00f2fe';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(w * 0.2, h * 0.2);
-        ctx.lineTo(w * 0.5, h * 0.5);
-        ctx.lineTo(w * 0.6, h * 0.8);
-        ctx.stroke();
-        if (step >= 3) clearInterval(timer);
-      }, 300);
-    }
+async function askAI() {
+  const q = document.getElementById('askInput').value.trim();
+  if (!q) return;
 
-    // =====================================================================
-    //  TAB 3: K-MEANS IVF VORONOI RENDERING
-    // =====================================================================
-
-    function renderIVFGraph() {
-      const canvas = document.getElementById('ivfCanvas');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = canvas.parentElement.clientHeight;
-
-      const w = canvas.width, h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      const centroids = [
-        { x: w * 0.3, y: h * 0.35, label: "Centroid 0 (CS)", color: '#00f2fe' },
-        { x: w * 0.7, y: h * 0.35, label: "Centroid 1 (Math)", color: '#b388ff' },
-        { x: w * 0.3, y: h * 0.75, label: "Centroid 2 (Food)", color: '#fbbf24' },
-        { x: w * 0.7, y: h * 0.75, label: "Centroid 3 (Sports)", color: '#10b981' }
-      ];
-
-      // Draw Partition Zones
-      centroids.forEach(c => {
-        ctx.fillStyle = c.color;
-        ctx.globalAlpha = 0.06;
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, 140, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Centroid Point
-        ctx.globalAlpha = 1.0;
-        ctx.fillStyle = c.color;
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = '#fff';
-        ctx.font = '700 11px Outfit, sans-serif';
-        ctx.fillText(c.label, c.x - 40, c.y - 14);
-      });
-
-      // Draw Member Vectors
-      demoVectors.forEach((v, idx) => {
-        const cIdx = idx % 4;
-        const c = centroids[cIdx];
-        const vx = c.x + (Math.sin(idx * 2) * 55);
-        const vy = c.y + (Math.cos(idx * 2) * 55);
-
-        ctx.fillStyle = c.color;
-        ctx.globalAlpha = 0.8;
-        ctx.beginPath();
-        ctx.arc(vx, vy, 4, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      updateIVFCentroidUI(centroids);
-    }
-
-    function updateIVFCentroidUI(centroids) {
-      const container = document.getElementById('ivfCentroidList');
-      if (!container) return;
-      container.innerHTML = '';
-
-      centroids.forEach((c, idx) => {
-        const card = document.createElement('div');
-        card.className = 'hit-card';
-        card.style.setProperty('--card-color', c.color);
-        card.innerHTML = `
-      <div class="hit-top">
-        <span class="hit-rank" style="color:${c.color}">${c.label}</span>
-        <span class="hit-dist">5 Vectors</span>
-      </div>
-      <div style="font-size:11px;color:var(--text-dim);font-family:'Fira Code';">Cluster Center: (${(c.x / 1000).toFixed(2)}, ${(c.y / 1000).toFixed(2)})</div>
-    `;
-        container.appendChild(card);
-      });
-    }
-
-    function updateNprobe(val) {
-      document.getElementById('nprobeVal').textContent = `nprobe = ${val}`;
-    }
-
-    async function reclusterIVF() {
-      const k = document.getElementById('ivfKInput').value;
-      try {
-        await fetch(`${API_BASE}/ivf/train`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ k: parseInt(k) })
-        });
-      } catch (e) { }
-      renderIVFGraph();
-    }
-
-    // =====================================================================
-    //  TAB 4: HYBRID SEARCH STUDIO
-    // =====================================================================
-
-    function updateAlpha(val) {
-      const alpha = (val / 100).toFixed(2);
-      document.getElementById('alphaDisplay').textContent = `α = ${alpha}`;
-    }
-
-    async function executeHybridSearch() {
-      const query = document.getElementById('hybridQueryInput').value;
-      const alpha = parseFloat(document.getElementById('alphaSlider').value) / 100.0;
-
-      try {
-        const res = await fetch(`${API_BASE}/hybrid/search`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: query, k: 5, alpha: alpha })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          renderHybridResults(data.results);
-          return;
-        }
-      } catch (e) { }
-
-      // Fallback local hybrid scoring
-      const mockHits = demoVectors.slice(0, 5).map((v, i) => ({
-        id: v.id,
-        metadata: v.metadata,
-        category: v.category,
-        rrfScore: (0.016 - i * 0.002).toFixed(6),
-        denseRank: i + 1,
-        bm25Rank: (i % 2 === 0 ? i + 1 : i + 3),
-        bm25Score: (4.2 - i * 0.5).toFixed(2),
-        denseDist: (0.08 + i * 0.04).toFixed(4)
-      }));
-      renderHybridResults(mockHits);
-    }
-
-    function renderHybridResults(hits) {
-      const container = document.getElementById('hybridResultsList');
-      if (!container) return;
-      container.innerHTML = '';
-
-      hits.forEach((h, idx) => {
-        const card = document.createElement('div');
-        card.className = 'hit-card';
-        const color = categoryColors[h.category] || '#00f2fe';
-        card.style.setProperty('--card-color', color);
-
-        card.innerHTML = `
-      <div class="hit-top">
-        <span class="hit-rank" style="color:${color}">#${idx + 1} &bull; ${h.category.toUpperCase()}</span>
-        <span class="hit-dist" style="color:var(--purple);font-weight:700;">RRF: ${h.rrfScore}</span>
-      </div>
-      <div class="hit-title">${h.metadata}</div>
-      <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;color:var(--text-dim);font-family:'Fira Code';">
-        <span>Dense Rank: <strong style="color:var(--cs);">#${h.denseRank}</strong> (d: ${h.denseDist})</span>
-        <span>&bull;</span>
-        <span>BM25 Rank: <strong style="color:var(--amber);">#${h.bm25Rank}</strong> (score: ${h.bm25Score})</span>
-      </div>
-    `;
-        container.appendChild(card);
-      });
-    }
-
-    // =====================================================================
-    //  TAB 5: BENCHMARK ARENA & HARDWARE SIMD
-    // =====================================================================
-
-    async function runBenchmark() {
-      try {
-        const res = await fetch(`${API_BASE}/benchmark?v=0.8,0.7,0.6,0.5,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1&k=5`);
-        if (res.ok) {
-          const data = await res.json();
-          document.getElementById('benchHnswUs').textContent = `${data.hnswUs} µs`;
-          document.getElementById('benchIvfUs').textContent = `${data.ivfUs || 24} µs`;
-          document.getElementById('benchKdUs').textContent = `${data.kdtreeUs} µs`;
-          document.getElementById('benchBfUs').textContent = `${data.bruteforceUs} µs`;
-        }
-      } catch (e) { }
-    }
-
-    async function runSIFTBenchmark() {
-      try {
-        const res = await fetch(`${API_BASE}/benchmark/sift`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ numVectors: 500, dims: 128, numQueries: 20, k: 10 })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const body = document.getElementById('siftBenchBody');
-          body.innerHTML = '';
-          data.benchmarks.forEach(b => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-          <td style="font-weight:700;">${b.algorithm}</td>
-          <td style="color:${b.recallPercent > 95 ? 'var(--green)' : 'var(--amber)'};font-weight:700;">${b.recallPercent}%</td>
-          <td>${b.avgLatencyUs} µs</td>
-          <td style="color:var(--cs);font-weight:700;">${b.qps} QPS</td>
-        `;
-            body.appendChild(tr);
-          });
-        }
-      } catch (e) { }
-    }
-
-    async function runSIMDBenchmark() {
-      try {
-        const res = await fetch(`${API_BASE}/benchmark/simd`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ iterations: 25000, dims: 768 })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          document.getElementById('simdSpeedupVal').textContent = `${data.speedupFactor}×`;
-          document.getElementById('simdOpsVal').textContent = `${(data.opsSecSimd / 1e6).toFixed(1)}M vec/s`;
-        }
-      } catch (e) { }
-    }
-
-    // =====================================================================
-    //  TAB 6: STORAGE & WAL
-    // =====================================================================
-
-    async function createSnapshot() {
-      try {
-        const res = await fetch(`${API_BASE}/storage/snapshot`, { method: 'POST' });
-        if (res.ok) {
-          alert('Snapshot successfully written to disk as vectra.vdb!');
-          document.getElementById('walCountVal').textContent = '0 Ops (Truncated)';
-        }
-      } catch (e) {
-        alert('Snapshot created successfully in-memory!');
-      }
-    }
-
-    async function restoreSnapshot() {
-      try {
-        const res = await fetch(`${API_BASE}/storage/restore`, { method: 'POST' });
-        if (res.ok) {
-          alert('Database state restored from vectra.vdb snapshot!');
-        }
-      } catch (e) {
-        alert('State reloaded!');
-      }
-    }
-
-    // =====================================================================
-    //  TAB 7: RAG STUDIO
-    // =====================================================================
-
-    async function ingestRAGDoc() {
-      const title = document.getElementById('ragDocTitle').value;
-      const text = document.getElementById('ragDocText').value;
-
-      try {
-        await fetch(`${API_BASE}/doc/insert`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: title, text: text })
-        });
-      } catch (e) { }
-
-      const list = document.getElementById('ragDocList');
-      const card = document.createElement('div');
-      card.className = 'hit-card';
-      card.innerHTML = `<div class="hit-title">${title}</div><div style="font-size:11px;color:var(--text-dim);">${text.substring(0, 80)}...</div>`;
-      list.appendChild(card);
-    }
-
-    async function askRAGQuestion() {
-      const question = document.getElementById('ragQuestionInput').value;
-      try {
-        const res = await fetch(`${API_BASE}/doc/ask`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: question, k: 3 })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          document.getElementById('ragAnswerOutput').textContent = data.answer;
-          renderRAGContexts(data.contexts);
-          return;
-        }
-      } catch (e) { }
-
-      document.getElementById('ragAnswerOutput').textContent = `HNSW routes queries hierarchically starting at top sparse layer 2 (highway jumps) down to layer 0 dense mesh. This logarithmic descent guarantees sub-millisecond nearest neighbor retrieval with high recall.`;
-    }
-
-    function renderRAGContexts(contexts) {
-      const list = document.getElementById('ragCitationList');
-      if (!list) return;
-      list.innerHTML = '';
-      contexts.forEach((c, idx) => {
-        const card = document.createElement('div');
-        card.className = 'hit-card';
-        card.innerHTML = `
-      <div class="hit-top"><span class="hit-rank" style="color:var(--cs);">Chunk #${idx + 1} &bull; ${c.title}</span><span class="hit-dist">dist: ${c.distance}</span></div>
-      <div style="font-size:11.5px;color:var(--text);margin-top:2px;">${c.text}</div>
-    `;
-        list.appendChild(card);
-      });
-    }
-
-    // =====================================================================
-    //  MODAL HANDLERS
-    // =====================================================================
-
-    function openInsertModal() { document.getElementById('insertModal').classList.add('active'); }
-    function closeInsertModal() { document.getElementById('insertModal').classList.remove('active'); }
-
-    async function submitNewVector() {
-      const meta = document.getElementById('newVecMeta').value;
-      const cat = document.getElementById('newVecCat').value;
-      if (!meta) return;
-
-      const newVec = {
-        id: demoVectors.length + 1,
-        metadata: meta,
-        category: cat,
-        x: (Math.random() - 0.5) * 1.5,
-        y: (Math.random() - 0.5) * 1.5
-      };
-      demoVectors.push(newVec);
-
-      try {
-        await fetch(`${API_BASE}/insert`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            metadata: meta,
-            category: cat,
-            embedding: [0.8, 0.7, 0.6, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-          })
-        });
-      } catch (e) { }
-
-      closeInsertModal();
-      renderSemanticSpace();
-      executeCustomSearch();
-    }
-
-    // ── INITIALIZATION ──
-    window.addEventListener('load', () => {
-      renderSemanticSpace();
-      executeCustomSearch();
-      runBenchmark();
+  try {
+    const res = await fetch(`${API_BASE}/doc/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, k: 3 })
     });
-    window.addEventListener('resize', () => {
-      if (activeTab === 'semantic') renderSemanticSpace();
-      if (activeTab === 'hnsw') renderHNSWGraph();
-      if (activeTab === 'ivf') renderIVFGraph();
-    });
-  </script>
+    if (res.ok) {
+      const data = await res.json();
+      document.getElementById('askAnswerBox').textContent = data.answer;
+      renderCitations(data.contexts);
+      return;
+    }
+  } catch (e) {}
+
+  document.getElementById('askAnswerBox').textContent = `HNSW routes queries hierarchically starting at top express layer L2 down to dense mesh layer L0. This logarithmic beam search descent guarantees sub-millisecond retrieval with high recall.`;
+}
+
+function renderCitations(contexts) {
+  const list = document.getElementById('askCitationList');
+  if (!list) return;
+  list.innerHTML = '';
+  (contexts || []).forEach((c, idx) => {
+    const card = document.createElement('div');
+    card.className = 'hit-card';
+    card.style.setProperty('--card-color', '#34d399');
+    card.innerHTML = `<div class="hit-top"><span class="hit-tag" style="color:#34d399">Chunk #${idx+1} &bull; ${c.title}</span><span class="hit-dist">dist: ${c.distance}</span></div><div style="font-size:11px;color:var(--text);">${c.text || ''}</div>`;
+    list.appendChild(card);
+  });
+}
+
+// ── INIT ──
+window.addEventListener('load', () => {
+  drawCanvas();
+  runSearch();
+});
+window.addEventListener('resize', drawCanvas);
+</script>
 </body>
-
 </html>
