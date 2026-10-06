@@ -1,6 +1,6 @@
 $pinfo = New-Object System.Diagnostics.ProcessStartInfo
-$pinfo.FileName = "C:\Users\Akash Singh\OneDrive\Desktop\Vectra\run_server.bat"
-$pinfo.WorkingDirectory = "C:\Users\Akash Singh\OneDrive\Desktop\Vectra"
+$pinfo.FileName = "c:\Users\Arsh Sharma\OneDrive\Desktop\Vector DB\vectra\run_server.bat"
+$pinfo.WorkingDirectory = "c:\Users\Arsh Sharma\OneDrive\Desktop\Vector DB\vectra"
 $pinfo.UseShellExecute = $true
 $pinfo.WindowStyle = "Normal"
 $proc = [System.Diagnostics.Process]::Start($pinfo)

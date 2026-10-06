@@ -1,16 +1,17 @@
 async function run() {
+  const HOST = 'http://127.0.0.1:8081';
   console.log('--- 1. Testing GET /status ---');
-  const s = await fetch('http://127.0.0.1:8080/status').then(r => r.json());
+  const s = await fetch(`${HOST}/status`, { headers: { 'Connection': 'close' } }).then(r => r.json());
   console.log('Status:', s);
 
   console.log('--- 2. Testing GET /clusters ---');
-  const c = await fetch('http://127.0.0.1:8080/clusters').then(r => r.json());
+  const c = await fetch(`${HOST}/clusters`, { headers: { 'Connection': 'close' } }).then(r => r.json());
   console.log('Clusters count:', c.length);
 
   console.log('--- 3. Testing POST /search (isro) ---');
-  const sr1 = await fetch('http://127.0.0.1:8080/search', {
+  const sr1 = await fetch(`${HOST}/search`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
     body: JSON.stringify({
       query: 'isro',
       algo: 'hnsw',
@@ -23,9 +24,9 @@ async function run() {
   sr1.results.forEach(r => console.log(`  [${r.category}] ${r.metadata} (d=${r.distance.toFixed(4)})`));
 
   console.log('--- 4. Testing POST /cluster/add ---');
-  const addC = await fetch('http://127.0.0.1:8080/cluster/add', {
+  const addC = await fetch(`${HOST}/cluster/add`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
     body: JSON.stringify({
       name: 'space_science',
       label: 'Space Science',
@@ -35,9 +36,9 @@ async function run() {
   console.log('Add Cluster:', addC);
 
   console.log('--- 5. Testing POST /insert ---');
-  const ins = await fetch('http://127.0.0.1:8080/insert', {
+  const ins = await fetch(`${HOST}/insert`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
     body: JSON.stringify({
       metadata: 'Chandrayaan-3 lunar rover soft landing on Moon south pole',
       category: 'space_science'
@@ -46,9 +47,9 @@ async function run() {
   console.log('Inserted Vector ID:', ins.id);
 
   console.log('--- 6. Testing Search on chandrayaan ---');
-  const sr2 = await fetch('http://127.0.0.1:8080/search', {
+  const sr2 = await fetch(`${HOST}/search`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
     body: JSON.stringify({
       query: 'chandrayaan moon landing',
       algo: 'hnsw',

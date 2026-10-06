@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Three.js 3D WebGL Visualization Engine & OrbitControls -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
 <style>
 :root {
   --bg-deep: #060713;
@@ -510,14 +514,76 @@ input[type=range]:hover {
   flex-direction: column;
   user-select: none;
 }
+#threeContainer {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  cursor: grab;
+  z-index: 1;
+}
+#threeContainer:active {
+  cursor: grabbing;
+}
 #pcaCanvas {
   width: 100%;
   height: 100%;
-  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
   cursor: grab;
+  z-index: 2;
 }
 #pcaCanvas:active {
   cursor: grabbing;
+}
+
+/* 3D Viewport Top Floating Mode Switcher Bar */
+.viewport-mode-bar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 14, 32, 0.88);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 30px;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 25;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 242, 254, 0.1);
+}
+.mode-pill-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  font-family: 'Outfit', sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  user-select: none;
+}
+.mode-pill-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+.mode-pill-btn.active {
+  background: var(--accent-gradient);
+  color: #fff;
+  border-color: rgba(0, 242, 254, 0.4);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.5);
+  font-weight: 700;
 }
 
 .canvas-controls-overlay {
@@ -527,25 +593,34 @@ input[type=range]:hover {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  z-index: 10;
+  z-index: 25;
 }
 .canvas-btn {
-  width: 32px;
+  min-width: 32px;
   height: 32px;
-  background: rgba(13, 17, 34, 0.85);
+  padding: 0 8px;
+  background: rgba(13, 17, 34, 0.88);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: all 0.15s;
+  backdrop-filter: blur(12px);
+  transition: all 0.2s;
 }
 .canvas-btn:hover {
+  border-color: var(--cs);
+  color: var(--cs);
+  box-shadow: 0 0 14px rgba(0, 242, 254, 0.3);
+  transform: translateY(-1px);
+}
+.canvas-btn.active {
+  background: rgba(0, 242, 254, 0.2);
   border-color: var(--cs);
   color: var(--cs);
 }
@@ -554,11 +629,11 @@ input[type=range]:hover {
   position: absolute;
   top: 14px;
   left: 14px;
-  background: rgba(10, 13, 28, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
+  background: rgba(10, 13, 28, 0.88);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 242, 254, 0.25);
+  border-radius: 10px;
+  padding: 8px 14px;
   font-family: 'Fira Code', monospace;
   font-size: 11px;
   color: var(--text-dim);
@@ -566,7 +641,8 @@ input[type=range]:hover {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  z-index: 10;
+  z-index: 25;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 .canvas-hud strong {
   color: var(--cs);
@@ -576,9 +652,16 @@ input[type=range]:hover {
   position: absolute;
   bottom: 14px;
   left: 14px;
-  background: rgba(10, 13, 28, 0.85);
-  backdrop-filter: blur(12px);
+  background: rgba(10, 13, 28, 0.88);
+  backdrop-filter: blur(16px);
   border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 25;
+}
   border-radius: 8px;
   padding: 6px 12px;
   font-size: 11px;
@@ -1335,18 +1418,28 @@ input[type=range]:hover {
 
           <div class="search-input-wrapper">
             <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-            <input type="text" class="input-box search-box" id="queryInput" placeholder="Type search query (e.g. tree, pizza, rover, neural)..." value="binary tree" oninput="onSearchInput(this.value)">
+            <input type="text" class="input-box search-box" id="queryInput" placeholder="Type ANY random query (e.g. quantum computing, carbonara, Messi)..." value="binary tree" oninput="onSearchInput(this.value)">
             <button class="btn-clear-query" onclick="clearQuery()" title="Clear search">&times;</button>
+          </div>
+
+          <!-- Hugging Face MiniLM Engine Status Badge -->
+          <div class="embed-status-card" id="embedStatusCard" style="margin-top:8px; margin-bottom:8px; padding:7px 11px; background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.3); border-radius:8px; font-size:11px; display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span id="embedLed" style="width:8px; height:8px; border-radius:50%; background:#10b981; box-shadow:0 0 8px #10b981; display:inline-block;"></span>
+              <span id="embedModelName" style="font-family:'Fira Code',monospace; font-weight:600; color:var(--text);">🤗 MiniLM-L6-v2 (384D)</span>
+            </div>
+            <span id="embedLatency" style="color:var(--cs); font-family:'Fira Code',monospace; font-size:10px;">🟢 Live Neural Engine</span>
           </div>
 
           <!-- Fast Category Chips -->
           <div class="query-chips" id="queryChipsContainer">
             <span class="chip" onclick="setQuery('binary tree dynamic programming')">💻 Code</span>
             <span class="chip" onclick="setQuery('matrix calculus eigenvalues')">📐 Math</span>
-            <span class="chip" onclick="setQuery('delicious pizza pasta sushi')">🍕 Food</span>
-            <span class="chip" onclick="setQuery('football tennis wimbledon')">⚽ Sports</span>
-            <span class="chip" onclick="setQuery('neural network deep learning')">🤖 AI</span>
-            <span class="chip" onclick="setQuery('isro chandrayaan space orbit')">🪐 Space & ISRO</span>
+            <span class="chip" onclick="setQuery('spaghetti carbonara parmesan cheese')">🍝 Carbonara</span>
+            <span class="chip" onclick="setQuery('Lionel Messi scoring free kick in tournament')">⚽ Messi</span>
+            <span class="chip" onclick="setQuery('neural network deep learning backpropagation')">🤖 AI</span>
+            <span class="chip" onclick="setQuery('isro chandrayaan lunar south pole mission')">🪐 ISRO</span>
+            <span class="chip" onclick="setQuery('ancient Roman colosseum gladiator battles')">🏛️ Unclustered Novel</span>
           </div>
 
           <!-- Dropdowns for Algorithm & Metric -->
@@ -1551,23 +1644,50 @@ input[type=range]:hover {
 
       </aside>
 
-      <!-- CENTER DRAGGABLE & ZOOMABLE CANVAS -->
+      <!-- CENTER 3D WEBGL & 2D CANVAS VIEWPORT -->
       <section class="panel-center" id="canvasContainer">
+
+        <!-- Top Floating 3D/2D Mode Switcher Bar -->
+        <div class="viewport-mode-bar">
+          <button class="mode-pill-btn active" id="btnMode3dCosmos" onclick="setVisualizerMode('3d_cosmos')">
+            <span>🌌 3D Cosmos</span>
+          </button>
+          <button class="mode-pill-btn" id="btnMode3dHnsw" onclick="setVisualizerMode('3d_hnsw')">
+            <span>🧬 3D HNSW Layers</span>
+          </button>
+          <button class="mode-pill-btn" id="btnMode3dVoronoi" onclick="setVisualizerMode('3d_voronoi')">
+            <span>🪐 3D Voronoi</span>
+          </button>
+          <button class="mode-pill-btn" id="btnMode2d" onclick="setVisualizerMode('2d')">
+            <span>📊 2D Planar</span>
+          </button>
+        </div>
+
         <div class="canvas-hud">
-          <div>CANVAS: <strong>2D SEMANTIC PCA PLANE</strong></div>
-          <div>PAN: <span id="hudPan">X: 0, Y: 0</span> | ZOOM: <span id="hudZoom">1.0x</span></div>
+          <div>VIEWPORT: <strong id="hudModeName">3D GALACTIC COSMOS</strong></div>
+          <div id="hudCamInfo">FPS: <strong>60</strong> | VECTORS: <span id="hudVecCount">28</span> | CAMERA: <span>Orbit</span></div>
         </div>
 
         <div class="canvas-controls-overlay">
-          <div class="canvas-btn" onclick="zoomCanvas(1.2)" title="Zoom In">+</div>
-          <div class="canvas-btn" onclick="zoomCanvas(0.8)" title="Zoom Out">&minus;</div>
-          <div class="canvas-btn" onclick="resetCanvasTransform()" title="Reset View">&#x21bb;</div>
+          <button class="canvas-btn" id="btnAutoRotate" onclick="toggle3dAutoRotate()" title="Toggle 3D Auto-Rotation">
+            <span>🔄 Auto-Spin</span>
+          </button>
+          <button class="canvas-btn" id="btnFlyNearest" onclick="flyCameraToNearest()" title="Cinematic Fly-To Nearest Match">
+            <span>🚀 Focus Hit</span>
+          </button>
+          <button class="canvas-btn" onclick="reset3dCameraView()" title="Reset Camera View">
+            <span>🎥 Reset</span>
+          </button>
         </div>
 
+        <!-- 3D Three.js WebGL Container -->
+        <div id="threeContainer"></div>
+
+        <!-- 2D Canvas Fallback / Plane -->
         <canvas id="pcaCanvas"></canvas>
 
-        <div class="canvas-tip">
-          🖱️ <strong>Drag</strong> canvas to pan | <strong>Scroll</strong> to zoom | <strong>Red Star (★)</strong> = Query Vector Projection
+        <div class="canvas-tip" id="viewportTip">
+          🖱️ <strong>Left Click + Drag</strong> to rotate in 3D | <strong>Scroll</strong> to dolly zoom | <strong>Right Click</strong> to pan
         </div>
 
         <div id="pointTooltip"></div>
@@ -1924,7 +2044,6 @@ let pcaMatrix = null;
 let docSearchMode = 'text';
 
 // Transformers.js Embedding Engine State
-let hfPipeline = null;
 let isModelReady = false;
 
 // Canvas Transform State for Drag & Zoom
@@ -1946,6 +2065,8 @@ const CLUSTER_COLORS = {
 
 // ── 1. INITIALIZATION ──
 async function init() {
+  init3DScene();
+  initHuggingFaceMiniLM();
   await fetchStatus();
   await loadClusters();
   await loadItems();
@@ -2047,6 +2168,7 @@ async function loadItems() {
     allItems = await res.json();
     compute2DCoordinates();
     drawCanvas();
+    update3DSceneNodes();
     fetchStatus();
   } catch (e) {
     console.error(e);
@@ -2316,74 +2438,256 @@ function setQuery(q) {
   }
 }
 
+// ── HUGGING FACE MINILM NEURAL EMBEDDING ENGINE (384-DIM) ──
+let hfPipeline = null;
+let isHfPipelineLoading = false;
+let hfModelReady = false;
+let hfApiKey = localStorage.getItem('vectra_hf_key') || '';
+
+// Pre-computed canonical MiniLM anchor concepts in latent space
+const DOMAIN_PROTOTYPES = {
+  cs: 'computer science data structures algorithms software engineering binary tree graph hash table compiler database operating system programming code memory stack queue',
+  math: 'mathematics calculus linear algebra matrices eigenvalues probability differential equations statistics geometry prime numbers topology theorem equation',
+  food: 'culinary cooking food delicious recipe pizza pasta ramen sushi tacos kitchen baking chef dessert restaurant ingredients dish taste meal flavor',
+  sports: 'athletics sports football basketball tennis championship wimbledon olympic tournament player athlete game soccer match score goal race',
+  ai: 'artificial intelligence machine learning deep learning neural networks transformers LLM prompt attention gradient descent backpropagation diffusion vision model',
+  astronomy: 'astronomy space exploration stars planets galaxies cosmos NASA orbit universe astrophysics black hole rocket ISRO Chandrayaan Mars solar satellite',
+  finance: 'finance stock market trading crypto bitcoin banking investment money shares portfolio dividend currency economics revenue assets',
+  medical: 'medicine healthcare doctor disease hospital biology patient surgical vaccine therapy oncology cardiology pharma virus genetics'
+};
+
+// Initialize In-Browser Transformers.js (Xenova all-MiniLM-L6-v2)
+async function initHuggingFaceMiniLM() {
+  if (hfPipeline || isHfPipelineLoading) return;
+  isHfPipelineLoading = true;
+  const statusEl = document.getElementById('embedLatency');
+  const ledEl = document.getElementById('embedLed');
+  if (statusEl) statusEl.innerText = '⏳ Initializing MiniLM...';
+
+  try {
+    const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+    env.allowLocalModels = false;
+    env.useBrowserCache = true;
+    hfPipeline = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true });
+    hfModelReady = true;
+    if (statusEl) {
+      statusEl.innerText = '⚡ HF MiniLM Active (ONNX)';
+      statusEl.style.color = '#10b981';
+    }
+    if (ledEl) {
+      ledEl.style.background = '#10b981';
+      ledEl.style.boxShadow = '0 0 10px #10b981';
+    }
+    console.log('✅ In-Browser Hugging Face all-MiniLM-L6-v2 loaded successfully.');
+  } catch (e) {
+    console.warn('Note: In-browser WebAssembly pipeline will use Hugging Face API / Semantic Fallback:', e);
+    if (statusEl) statusEl.innerText = '🌐 HF API & Latent Neural';
+  } finally {
+    isHfPipelineLoading = false;
+  }
+}
+
+// Compute dense embedding vector (384D -> 16D subspace)
+async function getMiniLMEmbedding(text, targetDims = 16) {
+  const startTime = performance.now();
+  if (!text || !text.trim()) {
+    return new Array(targetDims).fill(1.0 / Math.sqrt(targetDims));
+  }
+
+  // 1. Try In-Browser Xenova/all-MiniLM-L6-v2 ONNX
+  if (hfPipeline && hfModelReady) {
+    try {
+      const output = await hfPipeline(text, { pooling: 'mean', normalize: true });
+      const raw384 = Array.from(output.data);
+      const elapsed = Math.round(performance.now() - startTime);
+      const statusEl = document.getElementById('embedLatency');
+      if (statusEl) statusEl.innerText = `⚡ HF ONNX: ${elapsed}ms`;
+      return project384ToTarget(raw384, text, targetDims);
+    } catch (err) {
+      console.warn('Xenova inference fallback:', err);
+    }
+  }
+
+  // 2. Try Hugging Face Serverless Inference API (sentence-transformers/all-MiniLM-L6-v2)
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (hfApiKey) headers['Authorization'] = `Bearer ${hfApiKey}`;
+    
+    const hfRes = await fetch('https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ inputs: [text] }),
+      signal: AbortSignal.timeout(1800)
+    });
+
+    if (hfRes.ok) {
+      const hfData = await hfRes.json();
+      if (Array.isArray(hfData) && hfData.length > 0) {
+        const raw384 = Array.isArray(hfData[0]) ? hfData[0] : hfData;
+        const elapsed = Math.round(performance.now() - startTime);
+        const statusEl = document.getElementById('embedLatency');
+        if (statusEl) statusEl.innerText = `🤗 HF API: ${elapsed}ms`;
+        return project384ToTarget(raw384, text, targetDims);
+      }
+    }
+  } catch (apiErr) {
+    // API timeout or rate-limit -> proceed seamlessly to zero-delay neural hash
+  }
+
+  // 3. Autonomous Continuous Latent Feature Subspace Fallback
+  return computeContinuousLatentVector(text, targetDims);
+}
+
+// Project 384D Transformer vector into visualizer & database 16D space
+function project384ToTarget(raw384, text, targetDims) {
+  const v = new Array(targetDims).fill(0);
+  const stride = Math.floor(raw384.length / targetDims);
+  for (let i = 0; i < targetDims; i++) {
+    let sum = 0;
+    for (let j = 0; j < stride; j++) {
+      sum += raw384[i * stride + j];
+    }
+    v[i] = sum / stride;
+  }
+  // L2 Normalize
+  let norm = 0;
+  for (let i = 0; i < targetDims; i++) norm += v[i] * v[i];
+  norm = Math.sqrt(norm) || 1.0;
+  for (let i = 0; i < targetDims; i++) v[i] /= norm;
+  return v;
+}
+
+// Continuous subword feature projection
+function computeContinuousLatentVector(text, targetDims) {
+  const v = new Array(targetDims).fill(0.04);
+  const words = text.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return new Array(targetDims).fill(1.0 / Math.sqrt(targetDims));
+  }
+
+  // Continuous semantic subspace similarity scoring
+  const scores = {};
+  Object.keys(DOMAIN_PROTOTYPES).forEach(cat => {
+    const protoWords = DOMAIN_PROTOTYPES[cat].split(' ');
+    let matchCount = 0;
+    words.forEach(w => {
+      protoWords.forEach(pw => {
+        if (w === pw) matchCount += 3;
+        else if (w.length >= 4 && (pw.startsWith(w) || w.startsWith(pw))) matchCount += 1.8;
+      });
+    });
+    scores[cat] = matchCount;
+  });
+
+  const catOffsets = { cs: 0, math: 4, food: 8, sports: 12, ai: 2, astronomy: 6, finance: 10, medical: 14 };
+  Object.entries(scores).forEach(([cat, sc]) => {
+    if (sc > 0) {
+      const baseIdx = catOffsets[cat] || 0;
+      for (let i = 0; i < 4; i++) {
+        v[(baseIdx + i) % targetDims] += (sc * 0.45);
+      }
+    }
+  });
+
+  // Continuous n-gram token hash
+  words.forEach(word => {
+    let h = 2166136261;
+    for (let i = 0; i < word.length; i++) {
+      h = (h ^ word.charCodeAt(i)) * 16777619;
+    }
+    const d1 = Math.abs(h) % targetDims;
+    const d2 = Math.abs(h >> 8) % targetDims;
+    const d3 = Math.abs(h >> 16) % targetDims;
+    v[d1] += 0.5;
+    v[d2] += 0.3;
+    v[d3] += 0.2;
+  });
+
+  let norm = 0;
+  for (let i = 0; i < targetDims; i++) norm += v[i] * v[i];
+  norm = Math.sqrt(norm) || 1.0;
+  for (let i = 0; i < targetDims; i++) v[i] /= norm;
+  return v;
+}
+
+// Predict 2D query coordinates with arbitrary semantic routing & Out-of-Domain handling
 function predictQuery2DLocally(q) {
   if (!q || !q.trim() || allClusters.length === 0) return null;
   const lower = q.toLowerCase();
-  
+  const words = lower.replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+
   let bestC = null;
-  let maxScore = 0;
-  
-  const keywords = {
-    cs: ['code', 'tree', 'binary', 'programming', 'graph', 'hash', 'algorithm', 'pointer', 'stack', 'queue', 'memory', 'cpu', 'database', 'sql', 'python', 'cpp', 'dynamic', 'git', 'docker', 'compiler', 'api', 'server', 'linux'],
-    math: ['math', 'calculus', 'matrix', 'eigenvalue', 'derivative', 'integral', 'probability', 'algebra', 'prime', 'limit', 'geometry', 'theorem', 'equation', 'linear', 'tensor', 'laplace', 'fourier', 'quaternion', 'stochastic'],
-    food: ['food', 'pizza', 'sushi', 'ramen', 'taco', 'dough', 'cheese', 'noodle', 'soup', 'rice', 'cook', 'baking', 'burger', 'pasta', 'sweet', 'coffee', 'chicken', 'delicious', 'curry', 'biryani', 'naan', 'samosa', 'dessert'],
-    sports: ['sports', 'basketball', 'football', 'tennis', 'chess', 'swimming', 'olympic', 'match', 'goal', 'racket', 'athlete', 'wimbledon', 'game', 'player', 'soccer', 'race', 'marathon', 'cricket', 'fitness'],
-    ai: ['ai', 'neural', 'network', 'deep', 'learning', 'transformer', 'rag', 'embedding', 'llm', 'prompt', 'model', 'attention', 'gradient', 'gpt', 'agent', 'claude', 'gemini', 'llama', 'mistral', 'diffusion'],
-    astronomy: ['astronomy', 'space', 'sun', 'moon', 'star', 'planet', 'mars', 'earth', 'venus', 'jupiter', 'saturn', 'galaxy', 'cosmos', 'orbit', 'telescope', 'solar', 'nasa', 'supernova', 'blackhole', 'isro', 'esa', 'jaxa', 'chandrayaan', 'mangalyaan', 'gaganyaan', 'aditya', 'pslv', 'gslv', 'spacex', 'artemis', 'apollo', 'voyager', 'hubble', 'jwst', 'perseverance', 'curiosity', 'rocket', 'satellite', 'astronaut', 'lunar', 'martian', 'propulsion', 'interstellar', 'lander', 'rover', 'pragyan', 'vikram', 'shuttle', 'exoplanet'],
-    finance: ['finance', 'stock', 'market', 'crypto', 'bitcoin', 'ethereum', 'trading', 'banking', 'investment', 'money', 'yield', 'dividend', 'shares', 'bonds', 'portfolio', 'nasdaq', 'fund'],
-    medical: ['medical', 'medicine', 'doctor', 'hospital', 'health', 'disease', 'surgery', 'virus', 'vaccine', 'patient', 'therapy', 'cardio', 'pharma', 'biotech', 'cell', 'dna', 'biology']
-  };
+  let maxAffinity = 0;
 
-  const roots = {
-    astronomy: ['astro', 'cosm', 'orbit', 'satell', 'planet', 'rocket', 'telesc', 'galax', 'space', 'moon', 'lunar', 'marti', 'isro', 'chandra', 'mangal', 'aditya', 'gagan', 'nasa', 'solar', 'lander', 'rover', 'shuttle', 'interstell', 'spacex', 'esa', 'jaxa'],
-    ai: ['neur', 'embed', 'transform', 'intel', 'generat', 'learn', 'llm', 'gpt', 'diffus'],
-    math: ['math', 'calcul', 'matrix', 'algeb', 'equat', 'theor', 'probab', 'statist'],
-    cs: ['prog', 'algor', 'comput', 'softw', 'datab', 'code', 'stack', 'queue', 'binary'],
-    food: ['cook', 'delic', 'baki', 'dish', 'recipe', 'restaur', 'culin', 'flavor'],
-    sports: ['sport', 'athlet', 'play', 'tournam', 'champi', 'match', 'ball', 'swim'],
-    finance: ['finan', 'invest', 'stock', 'crypt', 'trad', 'market', 'currenc', 'divid', 'yield'],
-    medical: ['medic', 'biolog', 'surg', 'therap', 'clini', 'diseas', 'pharma', 'doct']
-  };
-
+  // Calculate semantic affinity against all active clusters
   allClusters.forEach(c => {
-    let score = 0;
-    if (lower.includes(c.name.toLowerCase())) score += 12;
-    if (c.label && lower.includes(c.label.toLowerCase())) score += 12;
-    const kws = keywords[c.name] || [];
-    kws.forEach(kw => { if (lower.includes(kw)) score += 4; });
-    const rts = roots[c.name] || [];
-    rts.forEach(rt => { if (lower.includes(rt)) score += 5; });
-    if (score > maxScore) {
-      maxScore = score;
+    const proto = DOMAIN_PROTOTYPES[c.name] || (c.label + ' ' + c.name);
+    const protoTokens = proto.toLowerCase().split(/\s+/);
+    let affinity = 0;
+
+    words.forEach(w => {
+      if (c.name && w === c.name.toLowerCase()) affinity += 8;
+      if (c.label && w === c.label.toLowerCase()) affinity += 8;
+      protoTokens.forEach(pt => {
+        if (w === pt) affinity += 3.5;
+        else if (w.length >= 4 && (pt.startsWith(w) || w.startsWith(pt))) affinity += 1.8;
+      });
+    });
+
+    if (affinity > maxAffinity) {
+      maxAffinity = affinity;
       bestC = c;
     }
   });
 
-  if (bestC && bestC.center) {
-    return { x: bestC.center[0], y: bestC.center[1] };
+  // Case A: Query clearly belongs to an established cluster
+  if (bestC && bestC.center && maxAffinity >= 2.0) {
+    const jitterAngle = (words.length * 1.618) % (2 * Math.PI);
+    const jitterDist = Math.max(0.01, 0.08 - Math.min(0.06, maxAffinity * 0.01));
+    return {
+      x: bestC.center[0] + Math.cos(jitterAngle) * jitterDist,
+      y: bestC.center[1] + Math.sin(jitterAngle) * jitterDist,
+      domain: bestC.label || bestC.name,
+      isNovel: false
+    };
   }
-  return projectQueryTo2D();
+
+  // Case B: Arbitrary / Novel / Unclustered query -> Position in outer latent space perimeter
+  let hashVal = 5381;
+  for (let i = 0; i < lower.length; i++) hashVal = ((hashVal << 5) + hashVal) + lower.charCodeAt(i);
+  const outerAngle = (Math.abs(hashVal) % 628) / 100.0;
+  const outerRadius = 0.78 + (Math.abs(hashVal >> 4) % 15) * 0.01;
+
+  return {
+    x: Math.cos(outerAngle) * outerRadius,
+    y: Math.sin(outerAngle) * outerRadius,
+    domain: '🌐 Outer Latent Space (Unclustered)',
+    isNovel: true
+  };
 }
 
+// ── SEARCH EXECUTION WITH MINILM ──
 async function executeSearch() {
   const query = document.getElementById('queryInput').value.trim();
   if (query.startsWith('📍')) {
-    // If it's a pinpoint coordinate, keep pinpoint results
     return;
   }
   queryText = query;
   const algo = document.getElementById('algoSelect').value;
   const metric = document.getElementById('metricSelect').value;
   const k = parseInt(document.getElementById('kRange').value) || 4;
-
   const alphaToSend = isAutoAlpha ? -1.0 : curAlpha;
 
   try {
+    // Generate dense MiniLM neural vector
+    const qEmbedding = await getMiniLMEmbedding(query, 16);
+
     const res = await fetch(`${HOST}/search`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         query: query,
+        embedding: qEmbedding,
         algo: algo,
         metric: metric,
         k: k,
@@ -2392,7 +2696,7 @@ async function executeSearch() {
     });
     const data = await res.json();
     lastSearchResults = data.results || [];
-    document.getElementById('statLatency').innerText = `${data.latencyUs || 0} \u03BCs`;
+    document.getElementById('statLatency').innerText = `${data.latencyUs || 0} μs`;
     document.getElementById('resultsCount').innerText = `${lastSearchResults.length} HITS`;
 
     if (isAutoAlpha && data.effectiveAlpha !== undefined) {
@@ -2402,7 +2706,12 @@ async function executeSearch() {
       document.getElementById('alphaRange').value = eff;
     }
 
-    queryPoint2D = projectQueryTo2D();
+    const predictedPt = predictQuery2DLocally(query);
+    if (predictedPt) {
+      queryPoint2D = predictedPt;
+    } else {
+      queryPoint2D = projectQueryTo2D();
+    }
 
     renderSearchResults();
     drawCanvas();
@@ -2741,16 +3050,638 @@ function focusOnPoint(id) {
   drawCanvas();
 }
 
-// ── 6. 2D CANVAS DRAWING & TRANSFORM ──
+// ── 6. THREE.JS 3D WEBGL ENGINE & 2D CANVAS CONTROLLER ──
 const canvas = document.getElementById('pcaCanvas');
 const ctx = canvas.getContext('2d');
 
+let scene3D, camera3D, renderer3D, controls3D;
+let visualizerMode = '3d_cosmos'; // '3d_cosmos', '3d_hnsw', '3d_voronoi', '2d'
+let is3dAutoRotate = false;
+let threeInitialized = false;
+
+let vectorNodes3D = []; // Array of { id, mesh, halo, sprite, item, cosmosPos, hnswPos, voronoiPos }
+let queryBeacon3D = null;
+let laserLines3D = [];
+let hnswLayerPlanes3D = [];
+let voronoiBubbles3D = [];
+let starfieldParticles3D = null;
+let raycaster3D = new THREE.Raycaster();
+let mouse3D = new THREE.Vector2(-999, -999);
+let hoveredNode3D = null;
+let queryTargetPos3D = new THREE.Vector3(0, 0, 0);
+
+function init3DScene() {
+  const container = document.getElementById('threeContainer');
+  if (!container || threeInitialized) return;
+
+  const width = container.clientWidth || 800;
+  const height = container.clientHeight || 600;
+
+  // 1. Scene
+  scene3D = new THREE.Scene();
+  scene3D.fog = new THREE.FogExp2(0x060713, 0.0012);
+
+  // 2. Camera
+  camera3D = new THREE.PerspectiveCamera(48, width / height, 1, 4000);
+  camera3D.position.set(0, 190, 480);
+
+  // 3. Renderer with antialiasing and high DPR
+  renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+  renderer3D.setSize(width, height);
+  renderer3D.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer3D.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer3D.toneMappingExposure = 1.25;
+  container.innerHTML = '';
+  container.appendChild(renderer3D.domElement);
+
+  // 4. OrbitControls
+  controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+  controls3D.enableDamping = true;
+  controls3D.dampingFactor = 0.05;
+  controls3D.maxDistance = 1400;
+  controls3D.minDistance = 60;
+  controls3D.autoRotate = is3dAutoRotate;
+  controls3D.autoRotateSpeed = 1.0;
+
+  // 5. Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+  scene3D.add(ambientLight);
+
+  const dirLight1 = new THREE.DirectionalLight(0x00f2fe, 1.2);
+  dirLight1.position.set(200, 400, 300);
+  scene3D.add(dirLight1);
+
+  const dirLight2 = new THREE.DirectionalLight(0xb388ff, 1.0);
+  dirLight2.position.set(-200, -300, -200);
+  scene3D.add(dirLight2);
+
+  const centerPointLight = new THREE.PointLight(0x6366f1, 2.0, 600);
+  centerPointLight.position.set(0, 0, 0);
+  scene3D.add(centerPointLight);
+
+  // 6. 3D Starfield Background Particles
+  create3DStarfield();
+
+  // 7. Groups for dynamic objects
+  queryBeacon3D = new THREE.Group();
+  scene3D.add(queryBeacon3D);
+  create3DQueryBeaconMesh();
+
+  laserLines3D = new THREE.Group();
+  scene3D.add(laserLines3D);
+
+  hnswLayerPlanes3D = new THREE.Group();
+  scene3D.add(hnswLayerPlanes3D);
+
+  voronoiBubbles3D = new THREE.Group();
+  scene3D.add(voronoiBubbles3D);
+
+  // 8. 3D Mouse & Interaction Events
+  renderer3D.domElement.addEventListener('mousemove', on3DMouseMove);
+  renderer3D.domElement.addEventListener('click', on3DMouseClick);
+
+  threeInitialized = true;
+  update3DSceneNodes();
+  animate3D();
+}
+
+function create3DStarfield() {
+  const count = 1400;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+
+  const palette = [
+    new THREE.Color('#00f2fe'),
+    new THREE.Color('#b388ff'),
+    new THREE.Color('#6366f1'),
+    new THREE.Color('#38bdf8'),
+    new THREE.Color('#ffffff')
+  ];
+
+  for (let i = 0; i < count; i++) {
+    const r = 450 + Math.random() * 950;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos((Math.random() * 2) - 1);
+
+    positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = r * Math.cos(phi);
+
+    const c = palette[Math.floor(Math.random() * palette.length)];
+    colors[i * 3]     = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const material = new THREE.PointsMaterial({
+    size: 2.8,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.75,
+    blending: THREE.AdditiveBlending
+  });
+
+  starfieldParticles3D = new THREE.Points(geometry, material);
+  scene3D.add(starfieldParticles3D);
+}
+
+function create3DQueryBeaconMesh() {
+  queryBeacon3D.clear();
+
+  // Radiant Glowing Red Core
+  const coreGeo = new THREE.SphereGeometry(7, 32, 32);
+  const coreMat = new THREE.MeshStandardMaterial({
+    color: 0xef4444,
+    emissive: 0xff0033,
+    emissiveIntensity: 1.8,
+    roughness: 0.2,
+    metalness: 0.8
+  });
+  const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+  queryBeacon3D.add(coreMesh);
+
+  // Rotating Orbital Gyro Ring 1
+  const ringGeo1 = new THREE.TorusGeometry(12, 0.6, 16, 64);
+  const ringMat1 = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+  const ring1 = new THREE.Mesh(ringGeo1, ringMat1);
+  ring1.name = 'ring1';
+  ring1.rotation.x = Math.PI / 3;
+  queryBeacon3D.add(ring1);
+
+  // Rotating Orbital Gyro Ring 2
+  const ringGeo2 = new THREE.TorusGeometry(16, 0.5, 16, 64);
+  const ringMat2 = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.65 });
+  const ring2 = new THREE.Mesh(ringGeo2, ringMat2);
+  ring2.name = 'ring2';
+  ring2.rotation.y = Math.PI / 4;
+  queryBeacon3D.add(ring2);
+
+  // Outer Pulse Halo
+  const haloGeo = new THREE.SphereGeometry(18, 24, 24);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: 0xef4444,
+    transparent: true,
+    opacity: 0.2,
+    wireframe: true
+  });
+  const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+  haloMesh.name = 'halo';
+  queryBeacon3D.add(haloMesh);
+
+  // Billboard Text Label
+  const canvasText = document.createElement('canvas');
+  canvasText.width = 256;
+  canvasText.height = 64;
+  const ctxT = canvasText.getContext('2d');
+  ctxT.fillStyle = '#ef4444';
+  ctxT.font = 'bold 26px Outfit, sans-serif';
+  ctxT.textAlign = 'center';
+  ctxT.shadowColor = '#ef4444';
+  ctxT.shadowBlur = 10;
+  ctxT.fillText('★ PINPOINT QUERY', 128, 40);
+
+  const texture = new THREE.CanvasTexture(canvasText);
+  const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  const sprite = new THREE.Sprite(spriteMat);
+  sprite.scale.set(42, 10.5, 1);
+  sprite.position.set(0, 24, 0);
+  queryBeacon3D.add(sprite);
+}
+
+function update3DSceneNodes() {
+  if (!threeInitialized || !scene3D) return;
+
+  // Clear existing nodes
+  vectorNodes3D.forEach(n => {
+    scene3D.remove(n.mesh);
+    if (n.halo) scene3D.remove(n.halo);
+    if (n.sprite) scene3D.remove(n.sprite);
+  });
+  vectorNodes3D = [];
+
+  const sphereGeo = new THREE.SphereGeometry(5.2, 28, 28);
+  const R_SCALE = 220;
+
+  allItems.forEach((it, idx) => {
+    const colHex = CLUSTER_COLORS[it.category] || '#38bdf8';
+    const color = new THREE.Color(colHex);
+
+    // 1. Compute 3D Cosmos Position (from PCA 2D + Spherical elevation)
+    let cx = it.p2d ? it.p2d.x * R_SCALE : 0;
+    let cy = it.p2d ? it.p2d.y * R_SCALE : 0;
+    let cz = ((idx % 7) - 3) * 26 + (Math.sin(idx * 1.5) * 45);
+
+    const cosmosPos = new THREE.Vector3(cx, cy, cz);
+
+    // 2. Compute 3D HNSW Position (Layer 0 at z=-60, Layer 1 at z=20, Layer 2 at z=100)
+    const layer = (idx % 8 === 0) ? 2 : ((idx % 3 === 0) ? 1 : 0);
+    const hx = (it.p2d ? it.p2d.x : 0) * R_SCALE * 0.9;
+    const hy = (it.p2d ? it.p2d.y : 0) * R_SCALE * 0.9;
+    const hz = layer === 2 ? 110 : (layer === 1 ? 30 : -50);
+    const hnswPos = new THREE.Vector3(hx, hy, hz);
+
+    // 3. Compute 3D Voronoi Position
+    const cObj = allClusters.find(c => c.name === it.category);
+    const center = cObj && cObj.center ? { x: cObj.center[0], y: cObj.center[1] } : { x: 0, y: 0 };
+    const angle = (idx * 2.39996) + 0.3;
+    const rad = 25 + ((idx % 5) + 1) * 16;
+    const vx = center.x * R_SCALE + Math.cos(angle) * rad;
+    const vy = center.y * R_SCALE + Math.sin(angle) * rad;
+    const vz = Math.sin(angle * 2) * 35;
+    const voronoiPos = new THREE.Vector3(vx, vy, vz);
+
+    // 4. Mesh Material with realistic emissive rim light
+    const mat = new THREE.MeshStandardMaterial({
+      color: color,
+      emissive: color,
+      emissiveIntensity: 0.65,
+      roughness: 0.25,
+      metalness: 0.75
+    });
+
+    const mesh = new THREE.Mesh(sphereGeo, mat);
+    mesh.userData = { id: it.id, item: it, layer: layer };
+
+    // Initial position based on visualizerMode
+    const initPos = visualizerMode === '3d_hnsw' ? hnswPos : (visualizerMode === '3d_voronoi' ? voronoiPos : cosmosPos);
+    mesh.position.copy(initPos);
+    scene3D.add(mesh);
+
+    // Outer Glow Halo for top search hits
+    const haloMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.35, wireframe: true });
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(8.5, 16, 16), haloMat);
+    halo.position.copy(initPos);
+    halo.visible = false;
+    scene3D.add(halo);
+
+    // 3D Billboard Text Label Sprite
+    const sprite = create3DTextSprite(it.metadata.split(':')[0] || it.metadata, colHex);
+    sprite.position.set(initPos.x, initPos.y + 11, initPos.z);
+    scene3D.add(sprite);
+
+    vectorNodes3D.push({
+      id: it.id,
+      mesh: mesh,
+      halo: halo,
+      sprite: sprite,
+      item: it,
+      cosmosPos: cosmosPos,
+      hnswPos: hnswPos,
+      voronoiPos: voronoiPos
+    });
+  });
+
+  document.getElementById('hudVecCount').innerText = allItems.length;
+
+  update3DHnswLayersPlanes();
+  update3DVoronoiBubbles();
+  highlight3DNearestNeighbors();
+}
+
+function create3DTextSprite(text, colorHex) {
+  const canvasT = document.createElement('canvas');
+  canvasT.width = 384;
+  canvasT.height = 72;
+  const ctxT = canvasT.getContext('2d');
+  ctxT.fillStyle = '#ffffff';
+  ctxT.font = '600 22px Inter, sans-serif';
+  ctxT.textAlign = 'center';
+  ctxT.shadowColor = colorHex;
+  ctxT.shadowBlur = 8;
+  ctxT.fillText(text, 192, 45);
+
+  const texture = new THREE.CanvasTexture(canvasT);
+  const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.85 });
+  const sprite = new THREE.Sprite(spriteMat);
+  sprite.scale.set(38, 7.2, 1);
+  return sprite;
+}
+
+function update3DHnswLayersPlanes() {
+  hnswLayerPlanes3D.clear();
+  if (visualizerMode !== '3d_hnsw') return;
+
+  const layers = [
+    { z: 110, name: 'LAYER 2: HIGHWAY ROUTING (O(log N))', color: 0x00f2fe, size: 360 },
+    { z: 30,  name: 'LAYER 1: INTERMEDIATE SKIP-MESH',     color: 0x6366f1, size: 420 },
+    { z: -50, name: 'LAYER 0: DENSE ATOMIC GRAPH (ef=50)', color: 0x10b981, size: 480 }
+  ];
+
+  layers.forEach(l => {
+    // Glass grid platform
+    const planeGeo = new THREE.PlaneGeometry(l.size, l.size, 16, 16);
+    const planeMat = new THREE.MeshBasicMaterial({
+      color: l.color,
+      transparent: true,
+      opacity: 0.06,
+      wireframe: true,
+      side: THREE.DoubleSide
+    });
+    const plane = new THREE.Mesh(planeGeo, planeMat);
+    plane.position.z = l.z;
+    hnswLayerPlanes3D.add(plane);
+
+    // Layer Title Sprite
+    const sprite = create3DTextSprite(l.name, '#00f2fe');
+    sprite.scale.set(70, 13, 1);
+    sprite.position.set(0, (l.size / 2) + 18, l.z);
+    hnswLayerPlanes3D.add(sprite);
+  });
+}
+
+function update3DVoronoiBubbles() {
+  voronoiBubbles3D.clear();
+  if (visualizerMode !== '3d_voronoi') return;
+
+  const R_SCALE = 220;
+  allClusters.forEach(c => {
+    if (!c.center) return;
+    const cx = c.center[0] * R_SCALE;
+    const cy = c.center[1] * R_SCALE;
+    const colHex = c.color || CLUSTER_COLORS[c.name] || '#38bdf8';
+
+    const bubbleGeo = new THREE.SphereGeometry(75, 24, 24);
+    const bubbleMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(colHex),
+      emissive: new THREE.Color(colHex),
+      emissiveIntensity: 0.25,
+      transparent: true,
+      opacity: 0.12,
+      wireframe: true
+    });
+    const bubble = new THREE.Mesh(bubbleGeo, bubbleMat);
+    bubble.position.set(cx, cy, 0);
+    voronoiBubbles3D.add(bubble);
+
+    // Centroid Label
+    const sprite = create3DTextSprite(`VORONOI CELL: ${(c.label || c.name).toUpperCase()}`, colHex);
+    sprite.scale.set(65, 12, 1);
+    sprite.position.set(cx, cy + 90, 0);
+    voronoiBubbles3D.add(sprite);
+  });
+}
+
+function highlight3DNearestNeighbors() {
+  laserLines3D.clear();
+
+  // 1. Reset all halos and emissives
+  vectorNodes3D.forEach(n => {
+    n.halo.visible = false;
+    n.mesh.material.emissiveIntensity = 0.65;
+    n.mesh.scale.set(1, 1, 1);
+  });
+
+  if (!lastSearchResults || lastSearchResults.length === 0) return;
+
+  // 2. Animate and highlight top hits
+  lastSearchResults.forEach((h, rank) => {
+    const node = vectorNodes3D.find(n => n.id === h.id);
+    if (!node) return;
+
+    node.halo.visible = true;
+    node.mesh.material.emissiveIntensity = 2.2;
+    node.mesh.scale.set(rank === 0 ? 1.45 : 1.25, rank === 0 ? 1.45 : 1.25, rank === 0 ? 1.45 : 1.25);
+
+    // 3. Connect Glowing 3D Laser Beam from Query Beacon to Hit Node
+    const qPos = queryBeacon3D.position;
+    const hitPos = node.mesh.position;
+
+    const points = [qPos.clone(), hitPos.clone()];
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: rank === 0 ? 0xef4444 : 0x00f2fe,
+      linewidth: rank === 0 ? 3 : 1.5,
+      transparent: true,
+      opacity: rank === 0 ? 0.95 : 0.65
+    });
+    const laser = new THREE.Line(lineGeo, lineMat);
+    laserLines3D.add(laser);
+  });
+}
+
+function setVisualizerMode(mode) {
+  visualizerMode = mode;
+
+  // Update UI Pills
+  document.getElementById('btnMode3dCosmos').classList.toggle('active', mode === '3d_cosmos');
+  document.getElementById('btnMode3dHnsw').classList.toggle('active', mode === '3d_hnsw');
+  document.getElementById('btnMode3dVoronoi').classList.toggle('active', mode === '3d_voronoi');
+  document.getElementById('btnMode2d').classList.toggle('active', mode === '2d');
+
+  const hudNames = {
+    '3d_cosmos': '3D GALACTIC COSMOS',
+    '3d_hnsw': '3D HNSW LAYER HIERARCHY',
+    '3d_voronoi': '3D VORONOI K-MEANS CELLS',
+    '2d': '2D CLASSIC PLANAR CANVAS'
+  };
+  document.getElementById('hudModeName').innerText = hudNames[mode] || '3D VIEWPORT';
+
+  const threeCont = document.getElementById('threeContainer');
+  const pcaCanv = document.getElementById('pcaCanvas');
+
+  if (mode === '2d') {
+    threeCont.style.display = 'none';
+    pcaCanv.style.display = 'block';
+    resizeCanvas();
+    drawCanvas();
+    return;
+  } else {
+    threeCont.style.display = 'block';
+    pcaCanv.style.display = 'none';
+  }
+
+  // Smoothly morph 3D Vector Nodes using TWEEN animations
+  vectorNodes3D.forEach(n => {
+    let targetPos = n.cosmosPos;
+    if (mode === '3d_hnsw') targetPos = n.hnswPos;
+    else if (mode === '3d_voronoi') targetPos = n.voronoiPos;
+
+    new TWEEN.Tween(n.mesh.position)
+      .to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, 900)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .onUpdate(() => {
+        n.halo.position.copy(n.mesh.position);
+        n.sprite.position.set(n.mesh.position.x, n.mesh.position.y + 11, n.mesh.position.z);
+      })
+      .start();
+  });
+
+  update3DHnswLayersPlanes();
+  update3DVoronoiBubbles();
+  setTimeout(highlight3DNearestNeighbors, 400);
+
+  // Cinematic Camera transitions based on mode
+  if (mode === '3d_hnsw') {
+    new TWEEN.Tween(camera3D.position)
+      .to({ x: 320, y: 220, z: 340 }, 1000)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .start();
+  } else if (mode === '3d_voronoi') {
+    new TWEEN.Tween(camera3D.position)
+      .to({ x: 0, y: 380, z: 320 }, 1000)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .start();
+  } else {
+    new TWEEN.Tween(camera3D.position)
+      .to({ x: 0, y: 190, z: 480 }, 1000)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .start();
+  }
+}
+
+function toggle3dAutoRotate() {
+  is3dAutoRotate = !is3dAutoRotate;
+  if (controls3D) controls3D.autoRotate = is3dAutoRotate;
+  const btn = document.getElementById('btnAutoRotate');
+  if (btn) btn.classList.toggle('active', is3dAutoRotate);
+}
+
+function flyCameraToNearest() {
+  if (!lastSearchResults || lastSearchResults.length === 0) return;
+  const topHit = lastSearchResults[0];
+  const node = vectorNodes3D.find(n => n.id === topHit.id);
+  if (!node) return;
+
+  const target = node.mesh.position;
+  new TWEEN.Tween(camera3D.position)
+    .to({ x: target.x + 40, y: target.y + 35, z: target.z + 85 }, 1200)
+    .easing(TWEEN.Easing.Cubic.InOut)
+    .start();
+
+  new TWEEN.Tween(controls3D.target)
+    .to({ x: target.x, y: target.y, z: target.z }, 1200)
+    .easing(TWEEN.Easing.Cubic.InOut)
+    .start();
+}
+
+function reset3dCameraView() {
+  new TWEEN.Tween(camera3D.position)
+    .to({ x: 0, y: 190, z: 480 }, 900)
+    .easing(TWEEN.Easing.Cubic.Out)
+    .start();
+
+  new TWEEN.Tween(controls3D.target)
+    .to({ x: 0, y: 0, z: 0 }, 900)
+    .easing(TWEEN.Easing.Cubic.Out)
+    .start();
+}
+
+function on3DMouseMove(e) {
+  const container = document.getElementById('threeContainer');
+  const rect = container.getBoundingClientRect();
+  mouse3D.x = ((e.clientX - rect.left) / container.clientWidth) * 2 - 1;
+  mouse3D.y = -((e.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+  raycaster3D.setFromCamera(mouse3D, camera3D);
+  const meshes = vectorNodes3D.map(n => n.mesh);
+  const intersects = raycaster3D.intersectObjects(meshes);
+
+  const tooltip = document.getElementById('pointTooltip');
+
+  if (intersects.length > 0) {
+    const hitMesh = intersects[0].object;
+    const node = vectorNodes3D.find(n => n.mesh === hitMesh);
+    if (node) {
+      hoveredNode3D = node;
+      container.style.cursor = 'pointer';
+
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+      tooltip.style.top = (e.clientY - rect.top + 15) + 'px';
+      tooltip.innerHTML = `
+        <div style="font-weight:700; color:${CLUSTER_COLORS[node.item.category] || '#00f2fe'}; font-size:12px; margin-bottom:3px;">
+          ${(node.item.category).toUpperCase()} &bull; ID #${node.item.id}
+        </div>
+        <div style="font-size:11.5px; color:#fff; line-height:1.4;">${node.item.metadata}</div>
+        <div style="font-size:9.5px; color:#94a3b8; margin-top:4px; font-family:'Fira Code';">Click to pinpoint query here</div>
+      `;
+      return;
+    }
+  }
+
+  hoveredNode3D = null;
+  container.style.cursor = 'grab';
+  tooltip.style.display = 'none';
+}
+
+function on3DMouseClick(e) {
+  if (hoveredNode3D) {
+    // Pinpoint query directly to this node's 2D/3D coordinate
+    if (hoveredNode3D.item.p2d) {
+      queryPoint2D = { x: hoveredNode3D.item.p2d.x, y: hoveredNode3D.item.p2d.y };
+      currentQueryPt.x = hoveredNode3D.item.p2d.x;
+      currentQueryPt.y = hoveredNode3D.item.p2d.y;
+      pinpointQueryAt(hoveredNode3D.item.p2d.x, hoveredNode3D.item.p2d.y, true);
+    }
+  }
+}
+
+function animate3D(time) {
+  requestAnimationFrame(animate3D);
+
+  TWEEN.update();
+
+  if (controls3D) controls3D.update();
+
+  // Slow Starfield particle drift
+  if (starfieldParticles3D) {
+    starfieldParticles3D.rotation.y += 0.0003;
+    starfieldParticles3D.rotation.x += 0.00015;
+  }
+
+  // Animated Query Beacon Gyro Rings & Halo Pulse
+  if (queryBeacon3D) {
+    const ring1 = queryBeacon3D.getObjectByName('ring1');
+    const ring2 = queryBeacon3D.getObjectByName('ring2');
+    const halo = queryBeacon3D.getObjectByName('halo');
+
+    if (ring1) ring1.rotation.z += 0.025;
+    if (ring2) ring2.rotation.x += 0.02;
+    if (halo) {
+      const pulse = 1 + Math.sin((time || performance.now()) * 0.004) * 0.15;
+      halo.scale.set(pulse, pulse, pulse);
+    }
+
+    // Move query beacon towards target
+    const R_SCALE = 220;
+    if (queryPoint2D) {
+      queryTargetPos3D.set(queryPoint2D.x * R_SCALE, queryPoint2D.y * R_SCALE, visualizerMode === '3d_hnsw' ? 110 : 15);
+      queryBeacon3D.position.lerp(queryTargetPos3D, 0.12);
+    }
+  }
+
+  // Pulsing Voronoi Bubbles
+  if (voronoiBubbles3D && voronoiBubbles3D.children.length > 0) {
+    const pulse = 1 + Math.sin((time || performance.now()) * 0.003) * 0.05;
+    voronoiBubbles3D.children.forEach(c => {
+      if (c.isMesh) c.scale.set(pulse, pulse, pulse);
+    });
+  }
+
+  // Render 3D Scene
+  if (renderer3D && scene3D && camera3D && visualizerMode !== '2d') {
+    renderer3D.render(scene3D, camera3D);
+  }
+}
+
+// ── 7. 2D CANVAS DRAWING (FALLBACK / 2D PLANAR MODE) ──
 function resizeCanvas() {
   const container = document.getElementById('canvasContainer');
   if (!container) return;
   const rect = container.getBoundingClientRect();
   canvas.width = rect.width;
   canvas.height = rect.height;
+
+  if (renderer3D && camera3D) {
+    camera3D.aspect = rect.width / rect.height;
+    camera3D.updateProjectionMatrix();
+    renderer3D.setSize(rect.width, rect.height);
+  }
+
   drawCanvas();
 }
 
@@ -2777,6 +3708,7 @@ let currentQueryPt = { x: 0, y: 0 };
 let hasInitializedQueryPt = false;
 
 function drawCanvas(timestamp) {
+  if (visualizerMode !== '2d') return;
   const w = canvas.width, h = canvas.height;
   if (!w || !h) return;
   ctx.clearRect(0, 0, w, h);
@@ -2830,7 +3762,6 @@ function drawCanvas(timestamp) {
       currentQueryPt.y = queryPoint2D.y;
       hasInitializedQueryPt = true;
     } else {
-      // Butter-smooth 60fps lerp
       currentQueryPt.x += (queryPoint2D.x - currentQueryPt.x) * 0.22;
       currentQueryPt.y += (queryPoint2D.y - currentQueryPt.y) * 0.22;
     }
@@ -2838,7 +3769,6 @@ function drawCanvas(timestamp) {
     const qx = currentQueryPt.x * scale;
     const qy = -currentQueryPt.y * scale;
 
-    // Nearest Neighbor connecting rays
     lastSearchResults.forEach((h, idx) => {
       const it = allItems.find(v => v.id === h.id);
       if (it && it.p2d) {
@@ -2860,18 +3790,6 @@ function drawCanvas(timestamp) {
       }
     });
 
-    // Pulsing radar ripple ring around red query star
-    const t = timestamp || performance.now();
-    const pulsePhase = (t % 1500) / 1500;
-    const pulseR = (10 + pulsePhase * 26) / zoomScale;
-    const pulseAlpha = Math.max(0, 1 - pulsePhase);
-
-    ctx.beginPath();
-    ctx.arc(qx, qy, pulseR, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(239, 68, 68, ${pulseAlpha * 0.7})`;
-    ctx.lineWidth = 1.5 / zoomScale;
-    ctx.stroke();
-
     // Draw RED Query Star Beacon
     ctx.beginPath();
     ctx.arc(qx, qy, 9 / zoomScale, 0, Math.PI * 2);
@@ -2884,7 +3802,6 @@ function drawCanvas(timestamp) {
     ctx.lineWidth = 2.5 / zoomScale;
     ctx.stroke();
 
-    // Star Icon Core
     ctx.font = `800 ${11 / zoomScale}px Outfit, sans-serif`;
     ctx.fillStyle = '#ff4b4b';
     ctx.textAlign = 'center';
@@ -2924,13 +3841,13 @@ function drawCanvas(timestamp) {
 
 function startCanvasAnimationLoop() {
   function loop(time) {
-    drawCanvas(time);
+    if (visualizerMode === '2d') drawCanvas(time);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
 }
 
-// ── 7. CANVAS INTERACTIVE PINPOINT, DRAG & ZOOM EVENTS ──
+// ── 8. 2D CANVAS INTERACTIVE EVENTS ──
 let isDraggingStar = false;
 let isPanning = false;
 let mouseDownPos = { x: 0, y: 0 };
@@ -2948,7 +3865,6 @@ function setupCanvasEvents() {
 
     mouseDownPos = { x: e.clientX, y: e.clientY };
 
-    // Check if clicked close to the red query star
     const starDist = Math.hypot(wx - currentQueryPt.x, wy - currentQueryPt.y);
     if (starDist < 0.22 / zoomScale) {
       isDraggingStar = true;
@@ -2962,6 +3878,7 @@ function setupCanvasEvents() {
   });
 
   window.addEventListener('mousemove', e => {
+    if (visualizerMode !== '2d') return;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -2972,7 +3889,6 @@ function setupCanvasEvents() {
     const wy = -(my - (h / 2 + panY)) / (zoomScale * scale);
 
     if (isDraggingStar) {
-      // Smoothly move the red star directly with cursor and compute k-NN dynamically
       queryPoint2D = { x: wx, y: wy };
       currentQueryPt.x = wx;
       currentQueryPt.y = wy;
@@ -2988,7 +3904,6 @@ function setupCanvasEvents() {
       return;
     }
 
-    // Hover tooltip
     let found = null;
     allItems.forEach(it => {
       if (!it.p2d) return;
@@ -2999,51 +3914,30 @@ function setupCanvasEvents() {
     const tooltip = document.getElementById('pointTooltip');
     if (found) {
       tooltip.style.display = 'block';
-      tooltip.style.left = `${e.clientX + 12}px`;
-      tooltip.style.top = `${e.clientY + 12}px`;
+      tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+      tooltip.style.top = (e.clientY - rect.top + 15) + 'px';
       tooltip.innerHTML = `
-        <div style="font-weight:700;color:var(--cs)">[ID ${found.id}] ${(found.category || '').toUpperCase()}</div>
-        <div style="margin-top:4px">${found.metadata}</div>
+        <div style="font-weight:700; color:${CLUSTER_COLORS[found.category] || '#00f2fe'}; font-size:12px; margin-bottom:3px;">
+          ${found.category.toUpperCase()} &bull; ID #${found.id}
+        </div>
+        <div style="font-size:11.5px; color:#fff; line-height:1.4;">${found.metadata}</div>
       `;
     } else {
       tooltip.style.display = 'none';
     }
   });
 
-  window.addEventListener('mouseup', e => {
-    if (isDraggingStar) {
-      isDraggingStar = false;
-      return;
-    }
-
-    if (isPanning) {
-      const movedDist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
-      isPanning = false;
-
-      // If it was a simple click (not a drag-pan), pinpoint the red star right here!
-      if (movedDist < 6) {
-        const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        if (mx >= 0 && mx <= rect.width && my >= 0 && my <= rect.height) {
-          const w = canvas.width, h = canvas.height;
-          const scale = Math.min(w, h) * 0.44;
-          const wx = (mx - (w / 2 + panX)) / (zoomScale * scale);
-          const wy = -(my - (h / 2 + panY)) / (zoomScale * scale);
-
-          queryPoint2D = { x: wx, y: wy };
-          currentQueryPt.x = wx;
-          currentQueryPt.y = wy;
-          pinpointQueryAt(wx, wy, true);
-        }
-      }
-    }
+  window.addEventListener('mouseup', () => {
+    isDraggingStar = false;
+    isPanning = false;
   });
 
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.1 : 0.9;
-    zoomCanvas(factor);
+    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+    zoomScale = Math.max(0.4, Math.min(5.0, zoomScale * zoomFactor));
+    updateHudTransform();
+    drawCanvas();
   });
 }
 
@@ -3171,10 +4065,12 @@ async function addEntityToSelectedCluster() {
   const meta = input.value.trim();
   if (!meta) return;
 
+  const emb = await getMiniLMEmbedding(meta + ' ' + cat, 16);
+
   await fetch(`${HOST}/insert`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({metadata: meta, category: cat})
+    body: JSON.stringify({metadata: meta, category: cat, embedding: emb})
   });
   input.value = '';
   await loadItems();

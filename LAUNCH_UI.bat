@@ -6,7 +6,7 @@ echo ========================================================
 echo   Launching VECTRA C++ Vector Database (AVX2 SIMD)
 echo ========================================================
 
-set "M=C:\Users\AKASHS~1\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\mingw64"
+set "M=C:\Users\ARSHSH~1\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\mingw64"
 set "PATH=%M%\bin;%PATH%;C:\Windows\system32;C:\Windows"
 
 set "PORT=8081"

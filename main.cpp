@@ -1809,6 +1809,9 @@ int main(int argc, char* argv[]) {
             if (emb.empty()) {
                 emb = localSemanticEmbed(meta + " " + cat, DIMS);
             }
+            while (emb.size() < (size_t)DIMS) emb.push_back(0.04f);
+            if (emb.size() > (size_t)DIMS) emb.resize(DIMS);
+
             int id = db.insert(meta, cat, emb, getDistFn("cosine"));
             res.set_content("{\"id\":" + std::to_string(id) + ",\"metadata\":" + jS(meta) + ",\"category\":" + jS(cat) + ",\"dims\":" + std::to_string(emb.size()) + "}", "application/json");
         } catch (...) {
@@ -1867,6 +1870,7 @@ int main(int argc, char* argv[]) {
                 qEmb = localSemanticEmbed(query.empty() ? "search" : query, DIMS);
             }
             while (qEmb.size() < (size_t)DIMS) qEmb.push_back(0.04f);
+            if (qEmb.size() > (size_t)DIMS) qEmb.resize(DIMS);
 
             auto out = db.search(qEmb, k, metric, algo, query, alpha);
             std::ostringstream ss;
@@ -2202,7 +2206,7 @@ int main(int argc, char* argv[]) {
     {
         std::ifstream f("index.html", std::ios::binary);
         if (!f.is_open()) {
-            f.open("c:\\Users\\Akash Singh\\OneDrive\\Desktop\\Vectra\\index.html", std::ios::binary);
+        f.open("c:\\Users\\Arsh Sharma\\OneDrive\\Desktop\\Vector DB\\vectra\\index.html", std::ios::binary);
         }
         if (f.is_open()) {
             cachedIndexHtml = std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
@@ -2213,7 +2217,7 @@ int main(int argc, char* argv[]) {
         cors(res);
         std::ifstream f("index.html", std::ios::binary);
         if (!f.is_open()) {
-            f.open("c:\\Users\\Akash Singh\\OneDrive\\Desktop\\Vectra\\index.html", std::ios::binary);
+        f.open("c:\\Users\\Arsh Sharma\\OneDrive\\Desktop\\Vector DB\\vectra\\index.html", std::ios::binary);
         }
         if (f.is_open()) {
             res.set_content(

@@ -6,7 +6,7 @@ const path = require('path');
 
 const VECTRA_DIR = path.dirname(__filename);
 const PORT = 8081;
-const MINGW = 'C:\\Users\\AKASHS~1\\AppData\\Local\\Microsoft\\WinGet\\Packages\\BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\\mingw64\\bin';
+const MINGW = 'C:\\Users\\ARSHSH~1\\AppData\\Local\\Microsoft\\WinGet\\Packages\\BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\\mingw64\\bin';
 
 let serverProc = null;
 let restartCount = 0;
