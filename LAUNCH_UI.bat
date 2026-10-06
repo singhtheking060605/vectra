@@ -1,22 +1,32 @@
 @echo off
-title "VECTRA - Vector Database Engine & Dashboard"
+cd /d "%~dp0"
+title VECTRA - Vector Database Engine and Dashboard
+
 echo ========================================================
-echo   Launching VECTRA C++ Vector Database (Milestone 2)
+echo   Launching VECTRA C++ Vector Database (AVX2 SIMD)
 echo ========================================================
 
-tasklist /FI "IMAGENAME eq db.exe" 2>NUL | find /I /N "db.exe">NUL
-if "%ERRORLEVEL%"=="0" (
-    echo [INFO] VECTRA C++ Engine is already running on port 8080.
-) else (
-    echo [INFO] Starting VECTRA C++ Server with AVX2 SIMD acceleration...
-    start "" /B db.exe
-    ping -n 2 127.0.0.1 >nul
-)
+set "M=C:\Users\AKASHS~1\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\mingw64"
+set "PATH=%M%\bin;%PATH%;C:\Windows\system32;C:\Windows"
 
-echo [INFO] Opening Live Dashboard in your default browser...
-start http://localhost:8080
+set "PORT=8081"
+if not "%~1"=="" set "PORT=%~1"
+
+echo [INFO] Cleaning up previous db.exe instances...
+taskkill /F /IM db.exe >nul 2>&1
+
+echo [INFO] Opening Live Dashboard in your default browser on port %PORT%...
+start http://localhost:%PORT%
+
+echo [INFO] Starting VECTRA C++ Engine on port %PORT%...
+echo [INFO] (Keep this terminal window open while using the app)
 echo ========================================================
-echo   Engine Ready at: http://localhost:8080
+echo.
+
+"%~dp0db.exe" %PORT%
+
+echo.
+echo ========================================================
+echo [STOPPED] VECTRA Engine process has terminated.
 echo ========================================================
 pause
-

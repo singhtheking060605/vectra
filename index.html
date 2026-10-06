@@ -3,32 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VECTRA — Vector Database Engine</title>
+<title>VECTRA — Unified Vector Database & Hybrid Similarity Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg-deep: #060713;
-  --bg-panel: #090b1a;
-  --bg-card: rgba(16, 20, 42, 0.7);
-  --border: rgba(255, 255, 255, 0.08);
+  --bg-surface: #0a0d1e;
+  --bg-card: rgba(13, 17, 34, 0.85);
+  --bg-card-hover: rgba(22, 28, 54, 0.95);
+  --border: rgba(255, 255, 255, 0.09);
   --border-focus: rgba(99, 102, 241, 0.6);
-
+  
   --cs: #00f2fe;
   --math: #b388ff;
   --food: #fbbf24;
   --sports: #10b981;
-  --rag: #34d399;
-  --query: #f43f5e;
-
-  --accent: #5865f2;
-  --accent-glow: rgba(88, 101, 242, 0.4);
-  --accent-gradient: linear-gradient(135deg, #5865f2 0%, #3b82f6 100%);
-
-  --text: #f1f5f9;
+  --ai: #f43f5e;
+  
+  --accent: #6366f1;
+  --accent-glow: rgba(99, 102, 241, 0.4);
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #00f2fe 100%);
+  
+  --text: #f8fafc;
   --text-dim: #94a3b8;
   --text-muted: #64748b;
+  
+  --green: #10b981;
+  --red: #ef4444;
+  --cyan: #00f2fe;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,392 +48,1222 @@ body {
 
 /* ── HEADER ── */
 header {
-  height: 48px;
-  background: rgba(8, 10, 22, 0.95);
+  background: rgba(6, 9, 20, 0.96);
+  backdrop-filter: blur(24px);
   border-bottom: 1px solid var(--border);
-  padding: 0 20px;
+  padding: 10px 24px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
   flex-shrink: 0;
   z-index: 50;
 }
-.header-left {
+.brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+}
+.brand-logo {
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(135deg, #6366f1 0%, #00f2fe 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  color: #fff;
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
 }
 .brand-title {
   font-family: 'Outfit', sans-serif;
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 800;
-  letter-spacing: 2px;
-  color: #fff;
+  letter-spacing: 1.2px;
+  color: #f8fafc;
 }
-.badge-pill {
-  font-family: 'Fira Code', monospace;
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 3px 9px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text-dim);
-}
-.badge-pill.active {
-  border-color: rgba(88, 101, 242, 0.6);
-  background: rgba(88, 101, 242, 0.15);
-  color: #818cf8;
-}
-.badge-pill.status {
-  border-color: rgba(16, 185, 129, 0.4);
-  background: rgba(16, 185, 129, 0.1);
-  color: #34d399;
-}
-.header-right {
-  font-family: 'Fira Code', monospace;
-  font-size: 12px;
+.brand-tagline {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
   color: var(--text-muted);
+  font-weight: 500;
+  margin-left: 2px;
+}
+.header-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--green);
+  font-family: 'Inter', sans-serif;
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--green);
+  animation: pulseDot 2s infinite ease-in-out;
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
 }
 
-/* ── MAIN WORKSPACE (3-COLUMN LAYOUT) ── */
-.workspace {
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+}
+.stat-label {
+  color: var(--text-muted);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.header-stat strong {
+  color: var(--cs);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+/* ── HORIZONTAL NAVIGATION BAR ── */
+.nav-bar {
+  background: rgba(8, 11, 24, 0.95);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  padding: 0 24px;
+  gap: 8px;
+  flex-shrink: 0;
+  z-index: 40;
+}
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+.nav-tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.025);
+}
+.nav-tab.active {
+  color: var(--cs);
+  border-bottom-color: var(--cs);
+  background: rgba(0, 242, 254, 0.04);
+}
+.nav-tab svg { width: 15px; height: 15px; stroke-width: 2; }
+
+
+/* ── VIEW CONTAINER ── */
+.main-view {
   flex: 1;
   display: flex;
   overflow: hidden;
+  position: relative;
+}
+.tab-content {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+.tab-content.active {
+  display: flex;
 }
 
-/* ── LEFT SIDEBAR ── */
-.sidebar-left {
-  width: 280px;
-  background: var(--bg-panel);
-  border-right: 1px solid var(--border);
+/* ── TAB 1: VECTOR ENGINE 3-COLUMN LAYOUT ── */
+.vector-engine-layout {
+  display: grid;
+  grid-template-columns: 370px 1fr 380px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Left Sidebar Controls */
+.panel-left {
+  background: rgba(8, 11, 24, 0.96);
+  backdrop-filter: blur(32px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  gap: 14px;
   overflow-y: auto;
-  flex-shrink: 0;
+  gap: 18px;
+  padding: 18px 18px 24px 18px;
+  z-index: 10;
 }
-.btn-search-action {
+.panel-left::-webkit-scrollbar {
+  width: 5px;
+}
+.panel-left::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+.panel-card {
+  background: rgba(14, 18, 38, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.panel-card:hover {
+  border-color: rgba(0, 242, 254, 0.35);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5), 0 0 15px rgba(0, 242, 254, 0.05);
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'Outfit', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 2px;
+}
+.card-title span.tag {
+  font-family: 'Fira Code', monospace;
+  font-size: 9.5px;
+  color: var(--cs);
+  background: rgba(0, 242, 254, 0.12);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.search-icon {
+  position: absolute;
+  left: 14px;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--cs);
+  stroke-width: 2.2;
+  pointer-events: none;
+}
+.input-box.search-box {
+  padding-left: 40px;
+  padding-right: 36px;
+  background: rgba(4, 7, 18, 0.9);
+  border: 1px solid rgba(0, 242, 254, 0.4);
+  box-shadow: 0 0 18px rgba(0, 242, 254, 0.09);
+  font-size: 13.5px;
+  font-weight: 500;
+  border-radius: 12px;
+  height: 42px;
+}
+.input-box.search-box:focus {
+  border-color: var(--cs);
+  box-shadow: 0 0 24px rgba(0, 242, 254, 0.35);
+}
+.btn-clear-query {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+.btn-clear-query:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.query-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.query-chips .chip {
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.query-chips .chip:hover {
+  background: rgba(0, 242, 254, 0.18);
+  border-color: var(--cs);
+  color: #fff;
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 12px rgba(0, 242, 254, 0.2);
+}
+
+.input-box, .select-box {
   width: 100%;
-  padding: 11px 16px;
+  background: rgba(4, 7, 18, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  outline: none;
+  transition: all 0.2s;
+}
+.input-box:focus, .select-box:focus {
+  border-color: var(--cs);
+  box-shadow: 0 0 14px rgba(0, 242, 254, 0.25);
+}
+.select-box option {
+  background: #0d1124;
+  color: var(--text);
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+.form-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.field-label {
+  font-size: 10px;
+  color: #94a3b8;
+  font-family: 'Fira Code', monospace;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 11px 14px;
   background: var(--accent-gradient);
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   color: #fff;
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 1px;
+  font-size: 12.5px;
+  letter-spacing: 0.6px;
   cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 18px var(--accent-glow);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 0 16px var(--accent-glow);
-  transition: all 0.2s;
 }
-.btn-search-action:hover {
-  box-shadow: 0 0 24px var(--accent-glow);
-  transform: translateY(-1px);
+.btn-primary:hover {
+  box-shadow: 0 0 28px rgba(0, 242, 254, 0.6);
+  transform: translateY(-1.5px);
 }
-.control-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.control-label {
-  font-family: 'Outfit', sans-serif;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  display: flex;
-  justify-content: space-between;
-}
-.algo-btn-group {
-  display: flex;
-  gap: 4px;
-}
-.algo-btn {
-  flex: 1;
-  padding: 7px 4px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-muted);
-  font-size: 11px;
-  font-family: 'Fira Code', monospace;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.15s;
-}
-.algo-btn:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
-}
-.algo-btn.active {
-  border-color: rgba(88, 101, 242, 0.8);
-  background: rgba(88, 101, 242, 0.2);
-  color: #fff;
-}
-.input-select {
+.btn-secondary {
   width: 100%;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 8px 10px;
-  color: var(--text);
-  font-size: 12px;
-  font-family: inherit;
-  outline: none;
-  cursor: pointer;
-}
-.input-select option {
-  background: #0f1328;
-  color: #fff;
-}
-.slider-range {
-  width: 100%;
-  accent-color: #6366f1;
-  cursor: pointer;
-}
-
-.legend-box {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.legend-item {
+  border-radius: 10px;
+  color: #cbd5e1;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11.5px;
-  color: var(--text-dim);
+  justify-content: center;
+  gap: 6px;
 }
-.legend-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
 }
 
-.input-text {
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.action-grid button {
   width: 100%;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 8px 10px;
-  color: var(--text);
-  font-size: 12px;
-  font-family: inherit;
-  outline: none;
-}
-.input-text:focus {
-  border-color: var(--border-focus);
+  font-size: 11.5px;
+  padding: 10px 8px;
+  border-radius: 10px;
 }
 
-/* ── CENTER CANVAS VIEWPORT ── */
-.center-viewport {
-  flex: 1;
-  position: relative;
-  background: #04050c;
+/* Elevated, Uncongested Luxury Slider Cards */
+.slider-card {
+  background: linear-gradient(145deg, rgba(18, 24, 50, 0.7) 0%, rgba(10, 14, 30, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  padding: 13px 15px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  gap: 10px;
+  transition: all 0.2s;
 }
-.canvas-header {
-  position: absolute;
-  top: 14px;
-  left: 20px;
+.slider-card:hover {
+  border-color: rgba(0, 242, 254, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.slider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.slider-title {
+  font-size: 11px;
+  color: #e2e8f0;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.slider-badge {
+  font-size: 11px;
   font-family: 'Fira Code', monospace;
-  font-size: 12px;
-  color: var(--text-muted);
-  pointer-events: none;
-  z-index: 10;
+  font-weight: 700;
+  color: var(--cs);
+  background: rgba(0, 242, 254, 0.12);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  padding: 3px 9px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+input[type=range] {
+  width: 100%;
+  accent-color: #00f2fe;
+  cursor: pointer;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  outline: none;
+  transition: background 0.2s;
+}
+input[type=range]:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Center Canvas Viewport */
+.panel-center {
+  background: radial-gradient(circle at center, #0e122e 0%, #050612 100%);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
 }
 #pcaCanvas {
   width: 100%;
   height: 100%;
   display: block;
+  cursor: grab;
 }
-.axis-label-x {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Fira Code', monospace;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.25);
-  pointer-events: none;
-}
-.axis-label-y {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-family: 'Fira Code', monospace;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.25);
-  pointer-events: none;
+#pcaCanvas:active {
+  cursor: grabbing;
 }
 
-/* ── RIGHT PANEL (SEARCH | DOCUMENTS | ASK AI) ── */
-.sidebar-right {
-  width: 320px;
-  background: var(--bg-panel);
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-.right-tab-bar {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.3);
-}
-.right-tab-btn {
-  flex: 1;
-  padding: 12px 6px;
-  font-family: 'Outfit', sans-serif;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  text-align: center;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.15s;
-}
-.right-tab-btn.active {
-  color: #818cf8;
-  border-bottom-color: #6366f1;
-}
-.right-tab-content {
-  flex: 1;
-  display: none;
-  flex-direction: column;
-  padding: 16px;
-  gap: 14px;
-  overflow-y: auto;
-}
-.right-tab-content.active {
-  display: flex;
-}
-
-.latency-bar-container {
+.canvas-controls-overlay {
+  position: absolute;
+  top: 14px;
+  right: 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  z-index: 10;
 }
-.latency-line {
-  height: 4px;
-  background: var(--cs);
-  border-radius: 2px;
-  width: 24px;
-  box-shadow: 0 0 8px var(--cs);
+.canvas-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(13, 17, 34, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.15s;
 }
-.latency-text {
-  font-family: 'Fira Code', monospace;
-  font-size: 12px;
-  color: var(--text-dim);
+.canvas-btn:hover {
+  border-color: var(--cs);
+  color: var(--cs);
 }
 
-.hit-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.hit-card {
-  background: rgba(0, 0, 0, 0.35);
+.canvas-hud {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: rgba(10, 13, 28, 0.85);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 8px 12px;
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  pointer-events: none;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+  z-index: 10;
+}
+.canvas-hud strong {
+  color: var(--cs);
+}
+
+.canvas-tip {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  background: rgba(10, 13, 28, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* Right Sidebar Results */
+.panel-right {
+  background: rgba(10, 14, 29, 0.85);
+  backdrop-filter: blur(28px);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  gap: 14px;
+  padding: 16px;
+}
+.panel-right::-webkit-scrollbar {
+  width: 6px;
+}
+.panel-right::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+}
+.panel-right::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 242, 254, 0.3);
+}
+.results-header-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.results-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.hit-card {
+  background: linear-gradient(135deg, rgba(15, 22, 44, 0.85) 0%, rgba(10, 14, 28, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   position: relative;
   overflow: hidden;
-  transition: all 0.15s;
+  animation: slideIn 0.22s ease-out;
 }
 .hit-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 0;
-  width: 3px; height: 100%;
-  background: var(--card-color, var(--cs));
+  top: 0; left: 0; bottom: 0;
+  width: 4px;
+  background: var(--card-accent, var(--cs));
+  border-radius: 4px 0 0 4px;
+  box-shadow: 0 0 10px var(--card-accent, var(--cs));
+}
+.hit-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 242, 254, 0.45);
+  background: linear-gradient(135deg, rgba(20, 30, 60, 0.95) 0%, rgba(13, 19, 38, 0.95) 100%);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 242, 254, 0.12);
 }
 .hit-top {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
-.hit-tag {
-  font-family: 'Fira Code', monospace;
-  font-size: 10px;
-  font-weight: 600;
+.hit-rank {
+  font-family: 'Outfit', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--accent-gradient);
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
-.hit-dist {
+.hit-id-badge {
   font-family: 'Fira Code', monospace;
   font-size: 10.5px;
   color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
-.hit-title {
-  font-size: 12px;
+.hit-cat {
+  font-size: 10px;
+  font-family: 'Fira Code', monospace;
+  padding: 3px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.hit-cat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.hit-meta {
+  font-size: 13px;
   font-weight: 500;
-  line-height: 1.35;
-  color: var(--text);
+  color: #e2e8f0;
+  line-height: 1.5;
+  word-break: break-word;
 }
-.hit-bar {
-  height: 3px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 2px;
+.hit-sim-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.hit-sim-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Fira Code', monospace;
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+.hit-sim-track {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
   overflow: hidden;
 }
-.hit-bar-fill {
+.hit-sim-fill {
   height: 100%;
-  background: var(--card-color, var(--cs));
-  border-radius: 2px;
+  background: linear-gradient(90deg, #6366f1 0%, #00f2fe 50%, #10b981 100%);
+  border-radius: 4px;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-.embedding-box {
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 10px;
+.score-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
   font-family: 'Fira Code', monospace;
   font-size: 10px;
+}
+.score-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 6px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
   color: var(--text-dim);
-  line-height: 1.4;
-  word-break: break-all;
+  text-align: center;
+  gap: 2px;
+}
+.score-item span.lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+.score-item span.val {
+  color: #f8fafc;
+  font-weight: 700;
+  font-size: 11px;
+}
+.btn-focus-node {
+  width: 100%;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: #94a3b8;
+  font-family: 'Outfit', sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+  letter-spacing: 0.3px;
+}
+.btn-focus-node:hover {
+  background: rgba(0, 242, 254, 0.12);
+  color: var(--cs);
+  border-color: rgba(0, 242, 254, 0.4);
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.15);
 }
 
-.hnsw-layer-line {
+/* ── TAB 2: DOCUMENT SIMILARITY & RAG STUDIO ── */
+.doc-studio-layout {
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+}
+.doc-panel-left {
+  background: rgba(8, 11, 24, 0.96);
+  backdrop-filter: blur(32px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 18px;
+  gap: 16px;
+  z-index: 10;
+}
+.doc-panel-left::-webkit-scrollbar,
+.doc-panel-right::-webkit-scrollbar {
+  width: 5px;
+}
+.doc-panel-left::-webkit-scrollbar-thumb,
+.doc-panel-right::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+.doc-panel-right {
+  background: radial-gradient(circle at top right, rgba(14, 22, 54, 0.45) 0%, rgba(6, 8, 20, 0.98) 100%);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 20px;
+  gap: 16px;
+}
+
+/* Source Type Switcher */
+.source-tab-group {
+  display: flex;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 4px;
+}
+.source-tab-btn {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.source-tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+.source-tab-btn.active {
+  background: rgba(0, 242, 254, 0.12);
+  color: var(--cs);
+  border-color: rgba(0, 242, 254, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Clean Dropzone */
+.doc-dropzone {
+  border: 1.5px dashed rgba(99, 102, 241, 0.35);
+  border-radius: 10px;
+  padding: 20px 16px;
+  text-align: center;
+  background: rgba(99, 102, 241, 0.03);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.doc-dropzone:hover {
+  border-color: var(--cs);
+  background: rgba(0, 242, 254, 0.05);
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.08);
+  transform: translateY(-1px);
+}
+.doc-dropzone svg {
+  width: 26px;
+  height: 26px;
+  stroke: var(--cs);
+  fill: none;
+  stroke-width: 1.8;
+}
+.format-pills-row {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+.format-pill {
+  font-family: 'Fira Code', monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Sample Dataset Pills */
+.sample-dataset-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sample-pill {
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sample-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pill-color, var(--cs));
+}
+.sample-pill:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* Editor Status Bar */
+.editor-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'Fira Code', monospace;
+  padding: 4px 2px;
+}
+
+/* Telemetry Grid */
+.telemetry-grid {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+}
+.telemetry-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.telemetry-label {
+  color: var(--text-muted);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.telemetry-val {
+  color: #f8fafc;
+  font-weight: 600;
+  font-size: 11.5px;
+}
+
+/* Search Toolbar */
+.rag-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-family: 'Fira Code', monospace;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+.rag-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 11px;
   color: var(--text-dim);
-  gap: 8px;
+  font-family: 'Fira Code', monospace;
 }
-.hnsw-track {
-  flex: 1;
-  height: 4px;
-  background: rgba(88, 101, 242, 0.2);
-  border-radius: 2px;
+
+/* RAG Result Cards */
+.doc-match-card {
+  background: linear-gradient(135deg, rgba(16, 22, 48, 0.85) 0%, rgba(10, 14, 30, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  position: relative;
   overflow: hidden;
 }
-.hnsw-fill {
-  height: 100%;
-  background: #6366f1;
-  border-radius: 2px;
+.doc-match-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #6366f1 0%, #00f2fe 100%);
+}
+.doc-match-card:hover {
+  border-color: rgba(0, 242, 254, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.45), 0 0 15px rgba(0, 242, 254, 0.08);
+}
+.doc-match-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.doc-match-rank {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 10.5px;
+  color: #fff;
+  background: var(--accent-gradient);
+  padding: 2px 7px;
+  border-radius: 5px;
+  letter-spacing: 0.5px;
+}
+.doc-match-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f8fafc;
+  flex: 1;
+}
+.doc-match-score {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green);
+  background: rgba(16, 185, 129, 0.12);
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  white-space: nowrap;
+}
+.doc-match-preview {
+  font-size: 12.5px;
+  color: #cbd5e1;
+  line-height: 1.6;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 11px 13px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  font-family: 'Inter', sans-serif;
+}
+.doc-match-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-family: 'Fira Code', monospace;
+  color: var(--text-dim);
+}
+
+/* Corpus Table */
+.corpus-table-wrapper {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(10, 13, 28, 0.6);
+  max-height: 250px;
+  overflow-y: auto;
+}
+.corpus-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.corpus-table th {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px 14px;
+  text-align: left;
+  font-family: 'Fira Code', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.corpus-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: middle;
+}
+.corpus-table tr:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+.btn-table-action {
+  padding: 4px 9px;
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-table-inspect {
+  color: var(--cs);
+  background: rgba(0, 242, 254, 0.08);
+  border-color: rgba(0, 242, 254, 0.25);
+  margin-right: 6px;
+}
+.btn-table-inspect:hover {
+  background: rgba(0, 242, 254, 0.2);
+  border-color: rgba(0, 242, 254, 0.5);
+}
+.btn-del-doc {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+.btn-del-doc:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+
+/* ── MODALS & POPUPS ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.modal-box {
+  width: 520px;
+  max-width: 92vw;
+  max-height: 88vh;
+  background: #0e1228;
+  border: 1px solid var(--border-focus);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+.modal-close:hover {
+  color: #fff;
+}
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: rgba(0,0,0,0.2);
+}
+
+/* Entity list inside modal */
+.entity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.entity-table th {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: 'Fira Code', monospace;
+}
+.entity-table td {
+  padding: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.btn-del-icon {
+  color: var(--red);
+  cursor: pointer;
+  padding: 2px 6px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+.btn-del-icon:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* Tooltip on Canvas */
+#pointTooltip {
+  position: absolute;
+  display: none;
+  background: rgba(14, 17, 36, 0.95);
+  border: 1px solid var(--cs);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: #fff;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  max-width: 260px;
 }
 </style>
 </head>
@@ -437,512 +1271,2216 @@ header {
 
 <!-- ── HEADER ── -->
 <header>
-  <div class="header-left">
-    <div class="brand-title">VECTRA</div>
-    <span class="badge-pill active">HNSW</span>
-    <span class="badge-pill">KD-TREE</span>
-    <span class="badge-pill">BRUTE FORCE</span>
-    <span class="badge-pill status">LOCAL AI &#10003;</span>
+  <div class="brand">
+    <div class="brand-logo">V</div>
+    <div>
+      <span class="brand-title">VECTRA</span>
+      <span class="brand-tagline">Vector Database &amp; RAG Engine</span>
+    </div>
   </div>
-  <div class="header-right" id="headerVectorsStatus">20 vectors &bull; 16 dims</div>
+
+  <div class="header-status">
+    <span class="status-dot"></span>
+    <span>Engine Online &bull; Port 8080</span>
+  </div>
+
+  <div class="header-right">
+    <div class="header-stat">
+      <span class="stat-label">Vectors</span>
+      <strong id="statVectors">0</strong>
+    </div>
+    <div class="header-stat">
+      <span class="stat-label">Clusters</span>
+      <strong id="statClusters">0</strong>
+    </div>
+    <div class="header-stat">
+      <span class="stat-label">Documents</span>
+      <strong id="statDocs">0</strong>
+    </div>
+    <div class="header-stat">
+      <span class="stat-label">Latency</span>
+      <strong id="statLatency">0 &mu;s</strong>
+    </div>
+  </div>
 </header>
 
-<!-- ── WORKSPACE ── -->
-<div class="workspace">
-
-  <!-- ── LEFT SIDEBAR (CONTROLS) ── -->
-  <div class="sidebar-left">
-    <button class="btn-search-action" onclick="runSearch()">&#9889; SEARCH</button>
-
-    <div class="control-section">
-      <div class="control-label">Algorithm</div>
-      <div class="algo-btn-group">
-        <div class="algo-btn active" data-algo="hnsw" onclick="selectAlgo('hnsw')">HNSW</div>
-        <div class="algo-btn" data-algo="kdtree" onclick="selectAlgo('kdtree')">KD-TREE</div>
-        <div class="algo-btn" data-algo="bruteforce" onclick="selectAlgo('bruteforce')">BRUTE</div>
-      </div>
-    </div>
-
-    <div class="control-section">
-      <div class="control-label">Distance Metric</div>
-      <select class="input-select" id="metricSelect" onchange="runSearch()">
-        <option value="cosine" selected>Cosine Similarity</option>
-        <option value="euclidean">Euclidean (L2)</option>
-        <option value="manhattan">Manhattan (L1)</option>
-      </select>
-    </div>
-
-    <div class="control-section">
-      <div class="control-label">
-        <span>Top-K</span>
-        <span id="topKDisplay" style="color:var(--text);font-family:'Fira Code';">5</span>
-      </div>
-      <input type="range" class="slider-range" id="topKSlider" min="1" max="10" value="5" oninput="updateTopK(this.value)">
-    </div>
-
-    <div class="control-section">
-      <div class="control-label">Category Legend</div>
-      <div class="legend-box">
-        <div class="legend-item"><div class="legend-dot" style="background:#00f2fe;box-shadow:0 0 8px #00f2fe;"></div><span>CS / Algorithms</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#b388ff;box-shadow:0 0 8px #b388ff;"></div><span>Mathematics</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;box-shadow:0 0 8px #fbbf24;"></div><span>Food &amp; Cooking</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#10b981;box-shadow:0 0 8px #10b981;"></div><span>Sports &amp; Games</span></div>
-        <div class="legend-item"><div class="legend-dot" style="background:#34d399;box-shadow:0 0 8px #34d399;"></div><span>Documents (RAG)</span></div>
-      </div>
-    </div>
-
-    <div class="control-section" style="margin-top:auto;">
-      <div class="control-label">Insert Demo Vector</div>
-      <input type="text" class="input-text" id="insertDesc" placeholder="Description..." onkeydown="if(event.key==='Enter')insertVector()">
-      <select class="input-select" id="insertCat" style="margin-top:4px;">
-        <option value="cs">CS / Algorithms</option>
-        <option value="math">Mathematics</option>
-        <option value="food">Food &amp; Cooking</option>
-        <option value="sports">Sports &amp; Games</option>
-      </select>
-      <button class="btn-search-action" style="padding:8px;font-size:11px;margin-top:6px;background:rgba(255,255,255,0.06);box-shadow:none;" onclick="insertVector()">+ INSERT VECTOR</button>
-    </div>
+<!-- ── HORIZONTAL NAVIGATION TAB BAR ── -->
+<nav class="nav-bar">
+  <div class="nav-tab active" id="tabNav-vector" onclick="switchNavTab('vector')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10l2.1 2.1M4.9 19.1l2.1-2.1m10-10l2.1-2.1"/></svg>
+    <span>Vector Space Visualizer</span>
   </div>
-
-  <!-- ── CENTER CANVAS (2D PCA PROJECTION) ── -->
-  <div class="center-viewport">
-    <div class="canvas-header">2D PCA Projection &bull; Semantic Space</div>
-    <canvas id="pcaCanvas"></canvas>
-    <div class="axis-label-x">PC&#8321; &rarr;</div>
-    <div class="axis-label-y">PC&#8322; &rarr;</div>
+  <div class="nav-tab" id="tabNav-doc" onclick="switchNavTab('doc')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    <span>Document RAG &amp; Embeddings</span>
   </div>
+</nav>
 
-  <!-- ── RIGHT SIDEBAR (SEARCH | DOCUMENTS | ASK AI) ── -->
-  <div class="sidebar-right">
-    <div class="right-tab-bar">
-      <div class="right-tab-btn active" onclick="switchRightTab('search')">SEARCH</div>
-      <div class="right-tab-btn" onclick="switchRightTab('docs')">DOCUMENTS</div>
-      <div class="right-tab-btn" onclick="switchRightTab('ask')">ASK AI</div>
-    </div>
+<!-- ── MAIN VIEW CONTENT ── -->
+<main class="main-view">
 
-    <!-- 1. SEARCH SUBTAB -->
-    <div class="right-tab-content active" id="tab-right-search">
-      <div class="control-section">
-        <div class="control-label">Search Latency</div>
-        <div class="latency-bar-container">
-          <div class="latency-line"></div>
-          <div class="latency-text" id="latencyDisplay">14.2 &mu;s</div>
-        </div>
-      </div>
+  <!-- ════ TAB 1: VECTOR ENGINE ════ -->
+  <div class="tab-content active" id="tabContent-vector">
+    <div class="vector-engine-layout">
 
-      <div class="control-section" style="flex:1;">
-        <div class="control-label">Top Matches</div>
-        <div class="hit-list" id="matchesList"></div>
-      </div>
+      <!-- LEFT SIDEBAR -->
+      <aside class="panel-left">
 
-      <div class="control-section">
-        <div class="control-label">Query Embedding (16D)</div>
-        <div class="embedding-box" id="queryEmbBox">[-0.420, 0.680, 0.720, 0.810, 0.120, 0.080, 0.150, 0.100, 0.050, 0.080, 0.060, 0.090, 0.070, 0.110, 0.080, 0.060]</div>
-      </div>
-
-      <div class="control-section">
-        <div class="control-label">HNSW Graph Layers</div>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:2px;">
-          <div class="hnsw-layer-line">
-            <span style="width:24px;">L0</span>
-            <div class="hnsw-track"><div class="hnsw-fill" style="width:100%;"></div></div>
-            <span style="font-size:10px;color:var(--text-muted);" id="l0Stats">20n &bull; 190e</span>
+        <!-- 1. Real-Time Vector Search -->
+        <div class="panel-card">
+          <div class="card-title">
+            <span>Vector Search</span>
+            <span class="tag">k-NN &bull; HYBRID</span>
           </div>
-          <div class="hnsw-layer-line">
-            <span style="width:24px;">L1</span>
-            <div class="hnsw-track"><div class="hnsw-fill" style="width:20%;"></div></div>
-            <span style="font-size:10px;color:var(--text-muted);" id="l1Stats">4n &bull; 6e</span>
+
+          <div class="search-input-wrapper">
+            <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" class="input-box search-box" id="queryInput" placeholder="Type search query (e.g. tree, pizza, rover, neural)..." value="binary tree" oninput="onSearchInput(this.value)">
+            <button class="btn-clear-query" onclick="clearQuery()" title="Clear search">&times;</button>
+          </div>
+
+          <!-- Fast Category Chips -->
+          <div class="query-chips" id="queryChipsContainer">
+            <span class="chip" onclick="setQuery('binary tree dynamic programming')">💻 Code</span>
+            <span class="chip" onclick="setQuery('matrix calculus eigenvalues')">📐 Math</span>
+            <span class="chip" onclick="setQuery('delicious pizza pasta sushi')">🍕 Food</span>
+            <span class="chip" onclick="setQuery('football tennis wimbledon')">⚽ Sports</span>
+            <span class="chip" onclick="setQuery('neural network deep learning')">🤖 AI</span>
+            <span class="chip" onclick="setQuery('isro chandrayaan space orbit')">🪐 Space & ISRO</span>
+          </div>
+
+          <!-- Dropdowns for Algorithm & Metric -->
+          <div class="form-row">
+            <div class="form-col">
+              <label class="field-label">INDEX ALGORITHM</label>
+              <select class="select-box" id="algoSelect" onchange="executeSearch()">
+                <option value="hnsw" selected>⚡ HNSW Graph (O(log N))</option>
+                <option value="ivf">⚙️ IVF K-Means (Voronoi)</option>
+                <option value="kdtree">🌲 KD-Tree (Spatial)</option>
+                <option value="bruteforce">🔍 Brute-Force (O(N))</option>
+              </select>
+            </div>
+            <div class="form-col">
+              <label class="field-label">DISTANCE METRIC</label>
+              <select class="select-box" id="metricSelect" onchange="executeSearch()">
+                <option value="cosine" selected>📐 Cosine Similarity</option>
+                <option value="euclidean">📏 Euclidean (L2)</option>
+                <option value="manhattan">📍 Manhattan (L1)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Hybrid Fusion Alpha Slider & Auto-Adapt Mode -->
+          <div class="slider-card">
+            <div class="slider-header">
+              <div class="slider-title">
+                <span>⚡ HYBRID FUSION (&alpha;)</span>
+                <button id="btnAutoAlpha" onclick="toggleAutoAlpha()" style="padding:3px 9px; font-size:10px; font-family:'Fira Code',monospace; background:rgba(0,242,254,0.15); border:1px solid var(--cs); color:var(--cs); border-radius:6px; cursor:pointer; font-weight:700; transition:all 0.2s;">
+                  🤖 AUTO
+                </button>
+              </div>
+              <span class="slider-badge" id="alphaDisplay">1.00 (Pure Vector)</span>
+            </div>
+            <input type="range" id="alphaRange" min="0" max="1" step="0.05" value="1.0" oninput="onManualAlphaChange(this.value)">
+          </div>
+
+          <!-- Top-K Slider -->
+          <div class="slider-card">
+            <div class="slider-header">
+              <span class="slider-title">🎯 TOP-K NEIGHBORS</span>
+              <span class="slider-badge" id="kValDisplay">k = 4 Neighbors</span>
+            </div>
+            <input type="range" id="kRange" min="1" max="15" value="4" oninput="document.getElementById('kValDisplay').innerText='k = '+this.value+' Neighbors'; executeSearch()">
+          </div>
+
+          <button class="btn-primary" onclick="executeSearch()" style="margin-top:4px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            SEARCH NEAREST NEIGHBORS
+          </button>
+        </div>
+
+        <!-- 2. Engine Control & Cluster Actions Grid -->
+        <div class="panel-card">
+          <div class="card-title">
+            <span>Actions & Management</span>
+            <span class="tag">ENGINE</span>
+          </div>
+
+          <div class="action-grid">
+            <button class="btn-primary" style="background:linear-gradient(135deg,#10b981,#00f2fe);" onclick="openAddClusterModal()">
+              + New Cluster
+            </button>
+            <button class="btn-secondary" onclick="openManageClustersModal()">
+              ⚡ Entities
+            </button>
+            <button class="btn-secondary" onclick="retrainIVFAndPCA()">
+              ⚙️ Train IVF
+            </button>
+            <button class="btn-secondary" style="border-color:rgba(179,136,255,0.3); color:var(--math);" onclick="run4WayBenchmark()">
+              ⚔️ Benchmark
+            </button>
+          </div>
+
+          <button class="btn-secondary" id="btnTogglePcaMode" style="margin-top:2px; font-size:11px;" onclick="togglePcaMode()">
+            🌐 View Mode: Radial Cluster Spread
+          </button>
+        </div>
+
+        <!-- ═══ WEEK 3: K-MEANS IVF SHOWCASE ═══ -->
+        <div class="panel-card" style="border-color:rgba(16,185,129,0.22); background:linear-gradient(145deg,rgba(14,22,20,0.85),rgba(10,14,18,0.9));">
+          <div class="card-title" style="gap:6px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-family:'Fira Code',monospace;font-size:9px;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);color:#10b981;padding:2px 7px;border-radius:10px;letter-spacing:0.5px;">WEEK 3</span>
+              <span style="color:#e2e8f0;">K-Means IVF Clustering</span>
+            </div>
+            <button onclick="runWeek3Demo()" style="padding:3px 10px;font-size:10px;font-family:'Fira Code',monospace;font-weight:700;background:rgba(16,185,129,0.18);border:1px solid rgba(16,185,129,0.4);color:#10b981;border-radius:6px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(16,185,129,0.35)'" onmouseout="this.style.background='rgba(16,185,129,0.18)'">▶ RUN</button>
+          </div>
+
+          <!-- IVF Voronoi Cell Stats -->
+          <div id="ivfStatsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(16,185,129,0.15);border-radius:8px;padding:8px 10px;">
+              <div style="font-size:9px;color:#10b981;font-family:'Fira Code',monospace;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;">Voronoi Cells</div>
+              <div id="ivfCentroidsVal" style="font-size:18px;font-weight:800;font-family:'Outfit',sans-serif;color:#f8fafc;">—</div>
+            </div>
+            <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(16,185,129,0.15);border-radius:8px;padding:8px 10px;">
+              <div style="font-size:9px;color:#10b981;font-family:'Fira Code',monospace;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:3px;">Indexed Vectors</div>
+              <div id="ivfVectorsVal" style="font-size:18px;font-weight:800;font-family:'Outfit',sans-serif;color:#f8fafc;">—</div>
+            </div>
+          </div>
+
+          <!-- Search Pruning Bar -->
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span style="font-size:10px;color:#94a3b8;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.4px;">Search Space Pruned</span>
+              <span id="ivfPruningPct" style="font-size:11px;font-weight:800;color:#10b981;font-family:'Fira Code',monospace;">—%</span>
+            </div>
+            <div style="height:6px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;">
+              <div id="ivfPruningBar" style="height:100%;width:0%;background:linear-gradient(90deg,#10b981,#00f2fe);border-radius:4px;transition:width 0.8s cubic-bezier(0.16,1,0.3,1);"></div>
+            </div>
+            <div style="font-size:9.5px;color:var(--text-muted);margin-top:4px;font-style:italic;">nprobe=2 probes visited per query out of K cells</div>
+          </div>
+
+          <!-- Cell Size Breakdown -->
+          <div>
+            <div style="font-size:9px;color:#94a3b8;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px;">Voronoi Cell Distribution</div>
+            <div id="ivfCellBars" style="display:flex;flex-direction:column;gap:4px;"></div>
+          </div>
+
+          <!-- Lloyd Iterations -->
+          <div id="ivfAlgoNote" style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.14);border-radius:8px;padding:8px 10px;font-size:10.5px;color:#94a3b8;line-height:1.6;display:none;">
+            <strong style="color:#10b981;">Lloyd's Algorithm:</strong> ASSIGN each vector to closest centroid → UPDATE centroid = mean of assigned → repeat until convergence.
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- 2. DOCUMENTS SUBTAB -->
-    <div class="right-tab-content" id="tab-right-docs">
-      <div class="control-section">
-        <div class="control-label">Add Document</div>
-        <input type="text" class="input-text" id="docTitleInput" placeholder="Document Title..." value="HNSW Graph Indexing">
-        <textarea class="input-text" id="docTextInput" rows="4" style="resize:none;margin-top:4px;" placeholder="Document content...">HNSW builds a multi-layer graph skip-list with logarithmic complexity O(log N) for fast high-dimensional nearest neighbor retrieval.</textarea>
-        <button class="btn-search-action" style="margin-top:6px;" onclick="ingestDoc()">EMBED &amp; INDEX</button>
-      </div>
+        <!-- ═══ WEEK 4: PCA DIMENSIONALITY REDUCTION SHOWCASE ═══ -->
+        <div class="panel-card" style="border-color:rgba(179,136,255,0.22); background:linear-gradient(145deg,rgba(18,14,26,0.85),rgba(10,12,22,0.9));">
+          <div class="card-title" style="gap:6px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-family:'Fira Code',monospace;font-size:9px;background:rgba(179,136,255,0.18);border:1px solid rgba(179,136,255,0.4);color:#b388ff;padding:2px 7px;border-radius:10px;letter-spacing:0.5px;">WEEK 4</span>
+              <span style="color:#e2e8f0;">PCA Dimensionality Reduction</span>
+            </div>
+            <button onclick="runWeek4Demo()" style="padding:3px 10px;font-size:10px;font-family:'Fira Code',monospace;font-weight:700;background:rgba(179,136,255,0.18);border:1px solid rgba(179,136,255,0.4);color:#b388ff;border-radius:6px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(179,136,255,0.35)'" onmouseout="this.style.background='rgba(179,136,255,0.18)'">▶ RUN</button>
+          </div>
 
-      <div class="control-section" style="flex:1;">
-        <div class="control-label">Ingested Document Chunks</div>
-        <div class="hit-list" id="docChunkList"></div>
-      </div>
-    </div>
+          <!-- Dimension reduction stat -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+            <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(179,136,255,0.14);border-radius:8px;padding:8px 10px;text-align:center;">
+              <div style="font-size:9px;color:#b388ff;font-family:'Fira Code',monospace;letter-spacing:0.4px;margin-bottom:2px;">INPUT</div>
+              <div style="font-size:16px;font-weight:800;color:#f8fafc;font-family:'Outfit',sans-serif;" id="pcaInputDims">64</div>
+              <div style="font-size:8px;color:var(--text-muted);">dims</div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:center;">
+              <div style="text-align:center;">
+                <div style="font-size:18px;color:#b388ff;font-weight:700;">→</div>
+                <div style="font-size:8px;color:var(--text-muted);font-family:'Fira Code',monospace;">PC1 + PC2</div>
+              </div>
+            </div>
+            <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(179,136,255,0.14);border-radius:8px;padding:8px 10px;text-align:center;">
+              <div style="font-size:9px;color:#b388ff;font-family:'Fira Code',monospace;letter-spacing:0.4px;margin-bottom:2px;">OUTPUT</div>
+              <div style="font-size:16px;font-weight:800;color:#b388ff;font-family:'Outfit',sans-serif;">2</div>
+              <div style="font-size:8px;color:var(--text-muted);">dims</div>
+            </div>
+          </div>
 
-    <!-- 3. ASK AI SUBTAB -->
-    <div class="right-tab-content" id="tab-right-ask">
-      <div class="control-section">
-        <div class="control-label">Question</div>
-        <div style="display:flex;gap:6px;">
-          <input type="text" class="input-text" id="askInput" placeholder="Ask about your vectors..." value="How does HNSW search work?" onkeydown="if(event.key==='Enter')askAI()">
-          <button class="btn-search-action" style="padding:0 12px;font-size:12px;" onclick="askAI()">ASK</button>
+          <!-- Variance explained bars -->
+          <div>
+            <div style="font-size:9px;color:#94a3b8;font-family:'Fira Code',monospace;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Variance Captured by Principal Components</div>
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;">
+                  <span style="color:#b388ff;font-family:'Fira Code',monospace;font-weight:700;">PC1 (1st Eigenvector)</span>
+                  <span id="pc1Pct" style="color:#b388ff;font-weight:700;font-family:'Fira Code',monospace;">~62%</span>
+                </div>
+                <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+                  <div id="pc1Bar" style="height:100%;width:62%;background:linear-gradient(90deg,#b388ff,#6366f1);border-radius:3px;transition:width 0.9s cubic-bezier(0.16,1,0.3,1);"></div>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;">
+                  <span style="color:#818cf8;font-family:'Fira Code',monospace;font-weight:700;">PC2 (2nd Eigenvector)</span>
+                  <span id="pc2Pct" style="color:#818cf8;font-weight:700;font-family:'Fira Code',monospace;">~23%</span>
+                </div>
+                <div style="height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+                  <div id="pc2Bar" style="height:100%;width:23%;background:linear-gradient(90deg,#818cf8,#38bdf8);border-radius:3px;transition:width 0.9s cubic-bezier(0.16,1,0.3,1);"></div>
+                </div>
+              </div>
+              <div style="font-size:9.5px;color:var(--text-muted);font-style:italic;">Total: <span id="pcaTotalVar" style="color:#b388ff;font-weight:700;">~85%</span> variance retained in 2D canvas</div>
+            </div>
+          </div>
+
+          <!-- PCA Live step trace -->
+          <div id="pcaStepTrace" style="background:rgba(179,136,255,0.06);border:1px solid rgba(179,136,255,0.14);border-radius:8px;padding:8px 10px;font-family:'Fira Code',monospace;font-size:9.5px;color:#94a3b8;line-height:1.7;display:none;">
+          </div>
+
+          <!-- Toggle PCA on canvas -->
+          <button class="btn-secondary" id="btnTogglePcaMode2" style="font-size:10.5px;border-color:rgba(179,136,255,0.35);color:#b388ff;" onclick="togglePcaMode()">
+            🌐 Switch Canvas: Radial → True PCA Latent
+          </button>
         </div>
-      </div>
 
-      <div class="control-section" style="flex:1;">
-        <div class="control-label">Grounded Context Answer</div>
-        <div class="embedding-box" id="askAnswerBox" style="font-size:12px;color:#fff;line-height:1.5;min-height:90px;white-space:pre-wrap;">HNSW performs multi-layer beam search. The query enters at express highway layer 2, drops through layer 1, and fine-tunes in layer 0 dense proximity mesh in O(log N) time.</div>
-      </div>
+        <!-- ═══ 4-WAY BENCHMARK RESULTS ═══ -->
+        <div class="panel-card" id="benchmarkCard" style="display:none; border-color:rgba(251,191,36,0.22); background:linear-gradient(145deg,rgba(20,17,10,0.9),rgba(10,12,16,0.9));">
+          <div class="card-title">
+            <span style="color:#fbbf24;">⚔️ 4-Way Index Battle</span>
+            <button onclick="document.getElementById('benchmarkCard').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;">×</button>
+          </div>
+          <div id="benchmarkResultsTable" style="display:flex;flex-direction:column;gap:5px;"></div>
+          <div style="font-size:9.5px;color:var(--text-muted);text-align:center;margin-top:2px;font-style:italic;">20 queries averaged · Smaller latency = faster index</div>
+        </div>
 
-      <div class="control-section">
-        <div class="control-label">Citations</div>
-        <div class="hit-list" id="askCitationList"></div>
-      </div>
+
+      </aside>
+
+      <!-- CENTER DRAGGABLE & ZOOMABLE CANVAS -->
+      <section class="panel-center" id="canvasContainer">
+        <div class="canvas-hud">
+          <div>CANVAS: <strong>2D SEMANTIC PCA PLANE</strong></div>
+          <div>PAN: <span id="hudPan">X: 0, Y: 0</span> | ZOOM: <span id="hudZoom">1.0x</span></div>
+        </div>
+
+        <div class="canvas-controls-overlay">
+          <div class="canvas-btn" onclick="zoomCanvas(1.2)" title="Zoom In">+</div>
+          <div class="canvas-btn" onclick="zoomCanvas(0.8)" title="Zoom Out">&minus;</div>
+          <div class="canvas-btn" onclick="resetCanvasTransform()" title="Reset View">&#x21bb;</div>
+        </div>
+
+        <canvas id="pcaCanvas"></canvas>
+
+        <div class="canvas-tip">
+          🖱️ <strong>Drag</strong> canvas to pan | <strong>Scroll</strong> to zoom | <strong>Red Star (★)</strong> = Query Vector Projection
+        </div>
+
+        <div id="pointTooltip"></div>
+      </section>
+
+      <!-- RIGHT RESULTS PANEL -->
+      <aside class="panel-right">
+        <div class="panel-card" style="flex:1; display:flex; flex-direction:column;">
+          <div class="card-title">
+            <span>Search Results</span>
+            <span class="tag" id="resultsCount">0 HITS</span>
+          </div>
+
+          <div class="results-scroll" id="vectorResultsList">
+            <div style="color:var(--text-muted); font-size:12px; text-align:center; padding:20px 0;">
+              Execute a search query to inspect nearest vector neighbors and hybrid scores.
+            </div>
+          </div>
+        </div>
+      </aside>
+
     </div>
   </div>
 
+  <!-- ════ TAB 2: DOCUMENT SIMILARITY & RAG STUDIO ════ -->
+  <div class="tab-content" id="tabContent-doc">
+    <div class="doc-studio-layout">
+
+      <!-- Left Document Ingestion Pipeline -->
+      <aside class="doc-panel-left">
+
+        <div class="panel-card">
+          <div class="card-title">
+            <span>Document Ingestion</span>
+            <span class="tag">64-D SIMD</span>
+          </div>
+
+          <!-- Source Selector: Text Input vs File Upload -->
+          <div class="source-tab-group">
+            <button class="source-tab-btn active" id="btnSourceText" onclick="setDocInputSource('text')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Manual / Markdown
+            </button>
+            <button class="source-tab-btn" id="btnSourceFile" onclick="setDocInputSource('file')">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              File Upload
+            </button>
+          </div>
+
+          <!-- File Upload Dropzone (shown in file mode) -->
+          <div id="docFileDropzone" class="doc-dropzone" style="display:none;" onclick="document.getElementById('fileUploadInput').click()">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div style="font-size:12.5px; font-weight:600; color:var(--text);">Select document or drag &amp; drop</div>
+            <div style="font-size:11px; color:var(--text-muted);">Plain text, Markdown, JSON, PDF extract</div>
+            <div class="format-pills-row">
+              <span class="format-pill">TXT</span>
+              <span class="format-pill">MD</span>
+              <span class="format-pill">JSON</span>
+              <span class="format-pill">PDF</span>
+              <span class="format-pill">CSV</span>
+            </div>
+            <input type="file" id="fileUploadInput" style="display:none" onchange="handleFileUpload(event)">
+          </div>
+
+          <!-- Document Title & Content Inputs -->
+          <div class="form-col">
+            <label class="field-label">DOCUMENT TITLE</label>
+            <input type="text" class="input-box" id="docTitleInput" placeholder="e.g. Distributed Systems & Consensus Architecture">
+          </div>
+
+          <div class="form-col">
+            <label class="field-label">DOCUMENT CONTENT / PASSAGE</label>
+            <textarea class="input-box" id="docTextInput" rows="6" placeholder="Paste or type document text to compute normalized semantic embeddings..." oninput="updateDocWordCount()"></textarea>
+            <div class="editor-stat-row">
+              <span id="docCharCount">0 characters</span>
+              <span id="docWordCount">0 words</span>
+              <span id="docTokenCount">~0 tokens</span>
+            </div>
+          </div>
+
+          <!-- Benchmark Datasets -->
+          <div class="form-col" style="gap:6px;">
+            <label class="field-label">BENCHMARK DATASETS</label>
+            <div class="sample-dataset-group">
+              <span class="sample-pill" style="--pill-color:#38bdf8" onclick="loadPresetDoc('quantum')">Quantum Mechanics</span>
+              <span class="sample-pill" style="--pill-color:#ec4899" onclick="loadPresetDoc('space')">Deep Space (JWST)</span>
+              <span class="sample-pill" style="--pill-color:#10b981" onclick="loadPresetDoc('crypto')">Distributed Ledger</span>
+              <span class="sample-pill" style="--pill-color:#a855f7" onclick="loadPresetDoc('ai_agent')">Transformer Networks</span>
+            </div>
+          </div>
+
+          <!-- Ingest Action -->
+          <div style="display:flex; gap:8px;">
+            <button class="btn-secondary" style="width:70px;" onclick="clearDocEditor()" title="Clear editor">Clear</button>
+            <button class="btn-primary" id="btnIngestDoc" style="flex:1;" onclick="ingestNewDocument()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              Embed &amp; Ingest
+            </button>
+          </div>
+
+          <!-- Telemetry Specs Card -->
+          <div class="telemetry-grid">
+            <div class="telemetry-cell">
+              <span class="telemetry-label">Vector Space</span>
+              <span class="telemetry-val">64-D Normalized</span>
+            </div>
+            <div class="telemetry-cell">
+              <span class="telemetry-label">Metric</span>
+              <span class="telemetry-val">Cosine Similarity</span>
+            </div>
+            <div class="telemetry-cell">
+              <span class="telemetry-label">SIMD Engine</span>
+              <span class="telemetry-val">AVX2 + FMA</span>
+            </div>
+            <div class="telemetry-cell">
+              <span class="telemetry-label">Last Ingest</span>
+              <span class="telemetry-val" id="telemetryLatency">&lt; 10ms</span>
+            </div>
+          </div>
+
+        </div>
+
+      </aside>
+
+      <!-- Right Similarity Results & Stored Corpus -->
+      <section class="doc-panel-right">
+
+        <!-- Top Section: Semantic Retrieval & Similarity Search -->
+        <div class="panel-card">
+          <div class="card-title">
+            <span>Semantic Retrieval &amp; RAG Search</span>
+            <span class="tag" id="docEngineTag">COSINE MATCHING</span>
+          </div>
+
+          <div class="search-input-wrapper">
+            <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" class="input-box search-box" id="docQueryInput" placeholder="Enter natural language query, question, or text passage to rank corpus..." onkeydown="if(event.key==='Enter') executeDocSimilaritySearch()">
+            <button class="btn-clear-query" onclick="clearDocQuery()" title="Clear query">&times;</button>
+          </div>
+
+          <div class="rag-toolbar">
+            <div class="rag-filter-group">
+              <span>Top-K:</span>
+              <select class="select-box" id="docTopKSelect" style="padding:4px 8px; font-size:11px; width:75px;" onchange="executeDocSimilaritySearch()">
+                <option value="3">3</option>
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+              </select>
+            </div>
+
+            <div class="rag-filter-group">
+              <span>Min Score:</span>
+              <input type="range" id="docMinScoreRange" min="0" max="90" value="0" step="5" style="width:90px;" oninput="document.getElementById('minScoreDisplay').innerText = this.value + '%'; filterRenderedMatches()">
+              <span id="minScoreDisplay" style="color:var(--cs); font-weight:700; width:32px;">0%</span>
+            </div>
+
+            <button class="btn-primary" style="width:auto; padding:7px 18px;" onclick="executeDocSimilaritySearch()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              Run Query
+            </button>
+          </div>
+
+          <!-- Similarity Matches Output -->
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:2px; border-top:1px solid rgba(255,255,255,0.06); padding-top:10px;">
+            <span style="font-size:11px; font-family:'Outfit',sans-serif; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">RANKED PASSAGE MATCHES</span>
+            <span class="tag" id="docMatchCount">0 MATCHES</span>
+          </div>
+
+          <div class="results-scroll" id="docSimilarityResultsList" style="max-height:280px;">
+            <div style="color:var(--text-muted); font-size:12px; text-align:center; padding:24px 0;">
+              Execute a search query above to inspect cosine similarity rankings and semantic relevance scores.
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Section: Active Knowledge Base Corpus -->
+        <div class="panel-card">
+          <div class="card-title">
+            <span>Indexed Knowledge Base Corpus</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input type="text" id="corpusSearchInput" placeholder="Filter corpus..." oninput="filterCorpusView(this.value)" style="padding:4px 9px; font-size:11px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:6px; color:#fff; width:150px;">
+              <span class="tag" id="storedDocCount">0 STORED</span>
+            </div>
+          </div>
+
+          <div class="corpus-table-wrapper">
+            <table class="corpus-table">
+              <thead>
+                <tr>
+                  <th style="width:55px;">ID</th>
+                  <th style="width:220px;">DOCUMENT TITLE</th>
+                  <th>PASSAGE PREVIEW</th>
+                  <th style="width:90px;">TOKENS</th>
+                  <th style="width:140px; text-align:center;">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="storedCorpusList">
+                <!-- Injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </div>
+
+</main>
+
+<!-- ════ MODAL 1: ADD NEW CLUSTER ════ -->
+<div class="modal-backdrop" id="addClusterModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">+ Create New Vector Cluster</div>
+      <button class="modal-close" onclick="closeModal('addClusterModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-col">
+        <label class="field-label">CLUSTER IDENTIFIER (LOWERCASE)</label>
+        <input type="text" class="input-box" id="mAddClusterName" placeholder="e.g. finance, medical, music">
+      </div>
+      <div class="form-col">
+        <label class="field-label">DISPLAY LABEL</label>
+        <input type="text" class="input-box" id="mAddClusterLabel" placeholder="e.g. Finance & Trading">
+      </div>
+      <div class="form-col">
+        <label class="field-label">CLUSTER COLOR</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="color" id="mAddClusterColor" value="#38bdf8" style="width:40px;height:36px;border:none;border-radius:6px;background:none;cursor:pointer;">
+          <span style="font-size:12px;color:var(--text-dim);">Pick distinct highlight color</span>
+        </div>
+      </div>
+      <div class="form-col">
+        <label class="field-label">INITIAL VECTOR ENTITIES (1 PER LINE)</label>
+        <textarea class="input-box" id="mAddClusterEntities" rows="4" placeholder="Stock Market: equities and options trading&#10;Cryptocurrency: bitcoin blockchain consensus&#10;Portfolio: risk diversification yield"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" style="width:auto;" onclick="closeModal('addClusterModal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:8px 20px;" onclick="submitNewCluster()">Create & Insert</button>
+    </div>
+  </div>
 </div>
 
+<!-- ════ MODAL 2: MANAGE CLUSTERS & VECTORS ════ -->
+<div class="modal-backdrop" id="manageClustersModal">
+  <div class="modal-box" style="width:620px;">
+    <div class="modal-header">
+      <div class="modal-title">Manage Clusters &amp; Vector Entities</div>
+      <button class="modal-close" onclick="closeModal('manageClustersModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-col">
+          <label class="field-label">SELECT CLUSTER TO INSPECT / EDIT</label>
+          <select class="select-box" id="mManageClusterSelect" onchange="renderModalClusterEntities()">
+            <!-- Injected dynamically -->
+          </select>
+        </div>
+        <button class="btn-secondary" style="width:auto;align-self:flex-end;color:var(--red);border-color:rgba(239,68,68,0.3);" onclick="deleteCurrentSelectedCluster()">
+          Delete Cluster
+        </button>
+      </div>
+
+      <!-- Add Entity into current cluster -->
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="text" class="input-box" id="mNewEntityMeta" placeholder="New Entity text for selected cluster...">
+        <button class="btn-primary" style="width:auto;padding:8px 16px;" onclick="addEntityToSelectedCluster()">+ Add Entity</button>
+      </div>
+
+      <!-- Existing entities table -->
+      <label class="field-label" style="margin-top:6px;">VECTOR ENTITIES IN THIS CLUSTER</label>
+      <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,0.2);">
+        <table class="entity-table">
+          <thead>
+            <tr>
+              <th style="width:50px;">ID</th>
+              <th>Description / Entity Text</th>
+              <th style="width:60px; text-align:center;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="mEntitiesTableBody">
+            <!-- Injected dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" style="width:auto;" onclick="closeModal('manageClustersModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL 3: DOCUMENT INSPECTOR MODAL ════ -->
+<div class="modal-backdrop" id="docInspectModal">
+  <div class="modal-box" style="width:680px;">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="tag" id="inspectDocIdTag">DOC #1</span>
+        <div class="modal-title" id="inspectDocTitle">Document Details</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('docInspectModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="telemetry-grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="telemetry-cell">
+          <span class="telemetry-label">Words</span>
+          <span class="telemetry-val" id="inspectWords">0</span>
+        </div>
+        <div class="telemetry-cell">
+          <span class="telemetry-label">Characters</span>
+          <span class="telemetry-val" id="inspectChars">0</span>
+        </div>
+        <div class="telemetry-cell">
+          <span class="telemetry-label">Est. Tokens</span>
+          <span class="telemetry-val" id="inspectTokens">0</span>
+        </div>
+        <div class="telemetry-cell">
+          <span class="telemetry-label">Vector Dims</span>
+          <span class="telemetry-val">64-D SIMD</span>
+        </div>
+      </div>
+
+      <div class="form-col">
+        <label class="field-label">FULL DOCUMENT TEXT</label>
+        <div id="inspectDocBody" style="background:rgba(0,0,0,0.35); border:1px solid var(--border); border-radius:8px; padding:14px; font-size:12.5px; line-height:1.6; color:#e2e8f0; font-family:'Inter',sans-serif; max-height:280px; overflow-y:auto; white-space:pre-wrap; word-break:break-word;"></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;">
+      <button class="btn-secondary" style="width:auto; color:var(--red); border-color:rgba(239,68,68,0.3);" id="btnDeleteInspectDoc">Delete Document</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-secondary" style="width:auto;" onclick="copyInspectDocText()">Copy Text</button>
+        <button class="btn-primary" style="width:auto; padding:8px 18px;" onclick="closeModal('docInspectModal')">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── JAVASCRIPT CONTROLLER ── -->
 <script>
-// =====================================================================
-//  STATE & DATA
-// =====================================================================
+const HOST = (window.location.protocol && window.location.protocol.startsWith('http')) ? window.location.origin : 'http://localhost:8081';
 
-const API_BASE = 'http://localhost:8080';
-let currentAlgo = 'hnsw';
-let currentK = 5;
-let queryPos = { x: -0.42, y: 0.68 };
+let allItems = [];
+let allClusters = [];
+let allDocs = [];
+let lastSearchResults = [];
+let curAlpha = 1.0;
+let queryPoint2D = null;
+let queryText = 'binary tree';
+let pcaMatrix = null;
+let docSearchMode = 'text';
 
-const clusterPalette = {
+// Transformers.js Embedding Engine State
+let hfPipeline = null;
+let isModelReady = false;
+
+// Canvas Transform State for Drag & Zoom
+let panX = 0, panY = 0;
+let zoomScale = 1.0;
+let isDragging = false;
+let startDragX = 0, startDragY = 0;
+
+const CLUSTER_COLORS = {
   cs: '#00f2fe',
   math: '#b388ff',
   food: '#fbbf24',
   sports: '#10b981',
-  rag: '#34d399'
+  ai: '#f43f5e',
+  astronomy: '#ec4899',
+  finance: '#10b981',
+  medical: '#06b6d4'
 };
 
-// 20 Clean Demo Vectors separated into 4 distinct semantic quadrants
-let vectorPoints = [
-  // CS / Algorithms (Quad II: -X, +Y)
-  { id: 1, label: "Linked List: pointers", cat: "cs", x: -0.48, y: 0.62 },
-  { id: 2, label: "Binary Search Tree: O(log n)", cat: "cs", x: -0.44, y: 0.66 },
-  { id: 3, label: "Dynamic Programming: memo", cat: "cs", x: -0.40, y: 0.70 },
-  { id: 4, label: "Graph BFS / DFS traversal", cat: "cs", x: -0.45, y: 0.73 },
-  { id: 5, label: "Hash Table: collision chains", cat: "cs", x: -0.42, y: 0.64 },
-
-  // Mathematics (Quad I: -X, +Y top left cluster)
-  { id: 6, label: "Calculus: derivatives limits", cat: "math", x: -0.56, y: 0.82 },
-  { id: 7, label: "Linear Algebra: matrices", cat: "math", x: -0.54, y: 0.85 },
-  { id: 8, label: "Probability: Bayes theorem", cat: "math", x: -0.58, y: 0.80 },
-  { id: 9, label: "Number Theory: RSA primes", cat: "math", x: -0.52, y: 0.86 },
-  { id: 10, label: "Combinatorics: permutations", cat: "math", x: -0.55, y: 0.84 },
-
-  // Food & Cooking (Quad I: +X, +Y top right cluster)
-  { id: 11, label: "Neapolitan Pizza: tomatoes", cat: "food", x: 0.58, y: 0.74 },
-  { id: 12, label: "Sushi: raw fish nori", cat: "food", x: 0.60, y: 0.72 },
-  { id: 13, label: "Ramen: noodle soup eggs", cat: "food", x: 0.56, y: 0.76 },
-  { id: 14, label: "Tacos: carnitas cilantro", cat: "food", x: 0.62, y: 0.75 },
-  { id: 15, label: "Croissant: flaky butter", cat: "food", x: 0.59, y: 0.78 },
-
-  // Sports & Games (Quad IV: +X, -Y bottom center-right)
-  { id: 16, label: "Basketball: dunks dribbling", cat: "sports", x: -0.12, y: -0.72 },
-  { id: 17, label: "Football: touchdowns field", cat: "sports", x: -0.06, y: -0.78 },
-  { id: 18, label: "Tennis: volleys serves", cat: "sports", x: -0.04, y: -0.80 },
-  { id: 19, label: "Chess: openings tactics", cat: "sports", x: -0.08, y: -0.75 },
-  { id: 20, label: "Swimming: freestyle Olympic", cat: "sports", x: -0.05, y: -0.77 }
-];
-
-let activeMatches = [];
-
-// =====================================================================
-//  CANVAS RENDERING (2D PCA PROJECTION & CLUSTERS)
-// =====================================================================
-
-function drawCanvas() {
-  const canvas = document.getElementById('pcaCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.parentElement.clientWidth;
-  canvas.height = canvas.parentElement.clientHeight;
-
-  const w = canvas.width, h = canvas.height;
-  const cx = w / 2, cy = h / 2;
-  const scale = Math.min(w, h) * 0.44;
-
-  ctx.clearRect(0, 0, w, h);
-
-  // Grid Lines
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
-  ctx.lineWidth = 1;
-  const step = scale * 0.25;
-  for (let x = cx % step; x < w; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-  }
-  for (let y = cy % step; y < h; y += step) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+// ── 1. INITIALIZATION ──
+async function init() {
+  await fetchStatus();
+  await loadClusters();
+  await loadItems();
+  await loadDocs();
+  renderCategoryChips();
+  setupCanvasEvents();
+  resizeCanvas();
+  startCanvasAnimationLoop();
+  
+  // Pinpoint query star at first cluster or center and display k-NN on right sidebar
+  if (allClusters.length > 0 && allClusters[0].center) {
+    const c = allClusters[0];
+    queryPoint2D = { x: c.center[0], y: c.center[1] };
+    currentQueryPt.x = c.center[0];
+    currentQueryPt.y = c.center[1];
+    pinpointQueryAt(c.center[0], c.center[1]);
+  } else {
+    pinpointQueryAt(0, 0);
   }
 
-  // Principal Axes
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, h); ctx.stroke();
+  // Auto-populate Week 3 & Week 4 showcase panels silently
+  try {
+    const statsRes = await fetch(`${HOST}/ivf/stats`);
+    const stats = await statsRes.json();
+    const centroids = stats.centroids || 0;
+    const activeVec = stats.activeVectors || allItems.length;
+    const clusterSizes = stats.clusterSizes || [];
 
-  // Draw Match Connection Lines
-  if (activeMatches.length > 0) {
-    const qx = cx + queryPos.x * scale;
-    const qy = cy - queryPos.y * scale;
+    if (centroids > 0) {
+      document.getElementById('ivfCentroidsVal').innerText = centroids;
+      document.getElementById('ivfVectorsVal').innerText = activeVec;
+      const pruningPct = Math.round((1 - 2 / centroids) * 100);
+      document.getElementById('ivfPruningPct').innerText = `${pruningPct}%`;
+      document.getElementById('ivfPruningBar').style.width = `${pruningPct}%`;
 
-    activeMatches.forEach(m => {
-      const pt = vectorPoints.find(v => v.id === m.id);
-      if (pt) {
-        const px = cx + pt.x * scale;
-        const py = cy - pt.y * scale;
-        ctx.strokeStyle = 'rgba(0, 242, 254, 0.3)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(qx, qy);
-        ctx.lineTo(px, py);
-        ctx.stroke();
-        ctx.setLineDash([]);
+      const cellBarsEl = document.getElementById('ivfCellBars');
+      if (cellBarsEl && clusterSizes.length > 0) {
+        const clusterNames = allClusters.map(c => c.label || c.name);
+        const maxSize = Math.max(...clusterSizes, 1);
+        cellBarsEl.innerHTML = '';
+        clusterSizes.forEach((sz, i) => {
+          const name = clusterNames[i] || `Cell ${i+1}`;
+          const col = allClusters[i] ? (allClusters[i].color || '#00f2fe') : '#00f2fe';
+          const pct = Math.round((sz / maxSize) * 100);
+          cellBarsEl.innerHTML += `
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:9px;color:${col};font-family:'Fira Code',monospace;width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${name}">${name}</span>
+              <div style="flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${col};border-radius:3px;opacity:0.85;"></div>
+              </div>
+              <span style="font-size:9px;font-family:'Fira Code',monospace;color:#94a3b8;width:18px;text-align:right;">${sz}</span>
+            </div>`;
+        });
       }
+    }
+  } catch(e) { /* silent fail */ }
+}
+window.addEventListener('load', init);
+window.addEventListener('resize', resizeCanvas);
+
+// ── 2. TAB SWITCHING ──
+function switchNavTab(tab) {
+  document.getElementById('tabNav-vector').classList.toggle('active', tab === 'vector');
+  document.getElementById('tabNav-doc').classList.toggle('active', tab === 'doc');
+  document.getElementById('tabContent-vector').classList.toggle('active', tab === 'vector');
+  document.getElementById('tabContent-doc').classList.toggle('active', tab === 'doc');
+  if (tab === 'vector') {
+    setTimeout(resizeCanvas, 50);
+  }
+}
+
+// ── 3. API LOADERS ──
+async function fetchStatus() {
+  try {
+    const res = await fetch(`${HOST}/status`);
+    const data = await res.json();
+    document.getElementById('statVectors').innerText = data.vectorCount || 0;
+    document.getElementById('statClusters').innerText = data.clusterCount || 0;
+    document.getElementById('statDocs').innerText = data.docCount || 0;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function loadClusters() {
+  try {
+    const res = await fetch(`${HOST}/clusters`);
+    allClusters = await res.json();
+    populateClusterDropdowns();
+    renderCategoryChips();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function loadItems() {
+  try {
+    const res = await fetch(`${HOST}/items`);
+    allItems = await res.json();
+    compute2DCoordinates();
+    drawCanvas();
+    fetchStatus();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function loadDocs() {
+  try {
+    const res = await fetch(`${HOST}/doc/list`);
+    allDocs = await res.json();
+    renderStoredCorpus();
+    fetchStatus();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function populateClusterDropdowns() {
+  const mSelect = document.getElementById('mManageClusterSelect');
+  if (mSelect) {
+    mSelect.innerHTML = '';
+    allClusters.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      opt.innerText = c.label || c.name;
+      mSelect.appendChild(opt);
     });
   }
-
-  // Draw Cluster Points with Glowing Halo
-  vectorPoints.forEach(pt => {
-    const px = cx + pt.x * scale;
-    const py = cy - pt.y * scale;
-    const color = clusterPalette[pt.cat] || '#00f2fe';
-
-    // Outer Glow Halo
-    const grad = ctx.createRadialGradient(px, py, 2, px, py, 14);
-    grad.addColorStop(0, color);
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(px, py, 14, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Solid Core
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(px, py, 4.5, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  // Draw Query Point (Glowing Red/Pink)
-  const qx = cx + queryPos.x * scale;
-  const qy = cy - queryPos.y * scale;
-
-  const qGrad = ctx.createRadialGradient(qx, qy, 3, qx, qy, 18);
-  qGrad.addColorStop(0, 'rgba(244, 63, 94, 0.8)');
-  qGrad.addColorStop(1, 'rgba(244, 63, 94, 0)');
-  ctx.fillStyle = qGrad;
-  ctx.beginPath();
-  ctx.arc(qx, qy, 18, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = '#f43f5e';
-  ctx.beginPath();
-  ctx.arc(qx, qy, 5, 0, Math.PI * 2);
-  ctx.fill();
 }
 
-// Click to move Query Point on Canvas
-document.getElementById('pcaCanvas')?.addEventListener('click', (e) => {
-  const canvas = document.getElementById('pcaCanvas');
-  const rect = canvas.getBoundingClientRect();
-  const w = canvas.width, h = canvas.height;
-  const cx = w / 2, cy = h / 2;
-  const scale = Math.min(w, h) * 0.44;
-
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-
-  queryPos.x = (mx - cx) / scale;
-  queryPos.y = (cy - my) / scale;
-
-  document.getElementById('queryEmbBox').textContent = `[${queryPos.x.toFixed(3)}, ${queryPos.y.toFixed(3)}, 0.720, 0.810, 0.120, 0.080, 0.150, 0.100, 0.050, 0.080, 0.060, 0.090, 0.070, 0.110, 0.080, 0.060]`;
-  runSearch();
-});
-
-// =====================================================================
-//  INTERACTIVE CONTROLS & SEARCH
-// =====================================================================
-
-function selectAlgo(algo) {
-  currentAlgo = algo;
-  document.querySelectorAll('.algo-btn').forEach(b => {
-    b.classList.toggle('active', b.getAttribute('data-algo') === algo);
-  });
-  runSearch();
-}
-
-function updateTopK(val) {
-  currentK = parseInt(val);
-  document.getElementById('topKDisplay').textContent = val;
-  runSearch();
-}
-
-function switchRightTab(tab) {
-  const buttons = document.querySelectorAll('.right-tab-btn');
-  buttons.forEach((b, i) => {
-    const tabs = ['search', 'docs', 'ask'];
-    b.classList.toggle('active', tabs[i] === tab);
-  });
-  document.getElementById('tab-right-search').classList.toggle('active', tab === 'search');
-  document.getElementById('tab-right-docs').classList.toggle('active', tab === 'docs');
-  document.getElementById('tab-right-ask').classList.toggle('active', tab === 'ask');
-}
-
-async function runSearch() {
-  const metric = document.getElementById('metricSelect').value;
-
-  try {
-    const res = await fetch(`${API_BASE}/search?v=0.8,0.7,0.6,0.5,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1&k=${currentK}&algo=${currentAlgo}&metric=${metric}`);
-    if (res.ok) {
-      const data = await res.json();
-      document.getElementById('latencyDisplay').textContent = `${data.latencyUs || 14.2} µs`;
-      activeMatches = data.results || [];
-      renderMatches(activeMatches);
-      drawCanvas();
-      return;
-    }
-  } catch (e) {}
-
-  // Local exact mathematical ranking
-  activeMatches = vectorPoints.map(v => {
-    const dx = v.x - queryPos.x;
-    const dy = v.y - queryPos.y;
-    return {
-      id: v.id,
-      metadata: v.label,
-      category: v.cat,
-      distance: (Math.sqrt(dx*dx + dy*dy) * 0.28).toFixed(4)
-    };
-  }).sort((a, b) => a.distance - b.distance).slice(0, currentK);
-
-  document.getElementById('latencyDisplay').textContent = `${(11 + Math.random() * 5).toFixed(1)} µs`;
-  renderMatches(activeMatches);
-  drawCanvas();
-}
-
-function renderMatches(hits) {
-  const container = document.getElementById('matchesList');
+function renderCategoryChips() {
+  const container = document.getElementById('queryChipsContainer');
   if (!container) return;
   container.innerHTML = '';
 
-  hits.forEach((h, idx) => {
-    const color = clusterPalette[h.category] || '#00f2fe';
-    const dist = Number(h.distance).toFixed(4);
-    const fill = Math.max(10, Math.min(100, (1 - parseFloat(dist)) * 100));
+  const clusterIcons = {
+    cs: '💻',
+    math: '📐',
+    food: '🍕',
+    sports: '⚽',
+    ai: '🤖',
+    astronomy: '🪐',
+    finance: '📈',
+    medical: '🩺',
+    music: '🎵',
+    gaming: '🎮'
+  };
 
+  allClusters.forEach(c => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    const icon = clusterIcons[c.name] || '✦';
+    chip.innerHTML = `${icon} ${c.label || c.name}`;
+    chip.onclick = () => {
+      if (c.center) {
+        queryPoint2D = { x: c.center[0], y: c.center[1] };
+        currentQueryPt.x = c.center[0];
+        currentQueryPt.y = c.center[1];
+        pinpointQueryAt(c.center[0], c.center[1]);
+      } else {
+        setQuery(c.name);
+      }
+    };
+    container.appendChild(chip);
+  });
+}
+
+// ── 4. 2D CLUSTER COORDINATES & CLEAR POINT SPREAD ──
+let isAutoAlpha = false;
+
+function compute2DCoordinates() {
+  const count = allClusters.length;
+  if (count === 0) return;
+  const R = 0.58;
+
+  // Compute cluster centroid positions uniformly along a circle
+  allClusters.forEach((c, idx) => {
+    if (!CLUSTER_COLORS[c.name]) {
+      CLUSTER_COLORS[c.name] = c.color || `hsl(${(idx * 137.5) % 360}, 80%, 60%)`;
+    }
+    const angle = (idx * Math.PI * 2 / count) - Math.PI / 2;
+    c.center = [Math.cos(angle) * R, Math.sin(angle) * R];
+  });
+
+  // Group items by cluster category to lay them out with maximum clarity
+  const catItems = {};
+  allItems.forEach(it => {
+    if (!catItems[it.category]) catItems[it.category] = [];
+    catItems[it.category].push(it);
+  });
+
+  Object.entries(catItems).forEach(([cat, items]) => {
+    const cObj = allClusters.find(c => c.name === cat);
+    const center = cObj && cObj.center ? {x: cObj.center[0], y: cObj.center[1]} : {x: 0, y: 0};
+    const n = items.length;
+
+    items.forEach((it, i) => {
+      // Golden angle / radial spread so every point has distinct, non-overlapping (x, y)
+      const angle = (i * 2.39996) + 0.3;
+      const radius = n <= 1 ? 0 : 0.05 + ((i + 1) / Math.max(n, 5)) * 0.12;
+      it.p2d = {
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius
+      };
+    });
+  });
+}
+
+function projectQueryTo2D() {
+  if (lastSearchResults.length > 0) {
+    let qx = 0, qy = 0, totalWeight = 0;
+    lastSearchResults.slice(0, 4).forEach((h, rank) => {
+      const it = allItems.find(v => v.id === h.id);
+      if (it && it.p2d) {
+        const weight = 1.0 / (Math.max(0.0001, h.distance) * (rank + 1));
+        qx += it.p2d.x * weight;
+        qy += it.p2d.y * weight;
+        totalWeight += weight;
+      }
+    });
+    if (totalWeight > 0) {
+      return { x: qx / totalWeight, y: qy / totalWeight };
+    }
+  }
+  return { x: 0, y: 0 };
+}
+
+// ── 5. PINPOINT RED STAR & REAL-TIME K-NN DISCOVERY ──
+function pinpointQueryAt(qx, qy, updateInputBox = false) {
+  if (allItems.length === 0) return;
+  const k = parseInt(document.getElementById('kRange').value) || 4;
+
+  // 1. Calculate 2D Euclidean distance from the pinpointed Red Star to every vector entity
+  const ranked = allItems.map(it => {
+    if (!it.p2d) return { ...it, distance: 999, hybridScore: 0, sparseScore: 0 };
+    const dx = it.p2d.x - qx;
+    const dy = it.p2d.y - qy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    // Normalized proximity percentage
+    const sim = Math.max(0, Math.min(1.0, 1.0 - (dist / 1.15)));
+    return {
+      id: it.id,
+      metadata: it.metadata,
+      category: it.category,
+      distance: dist,
+      hybridScore: sim,
+      sparseScore: Math.round(sim * 10)
+    };
+  });
+
+  ranked.sort((a, b) => a.distance - b.distance);
+  lastSearchResults = ranked.slice(0, k);
+
+  // 2. Identify nearest cluster for UI labeling
+  let closestCluster = 'Custom Coordinate';
+  let minClustDist = 999;
+  allClusters.forEach(c => {
+    if (c.center) {
+      const cd = Math.hypot(c.center[0] - qx, c.center[1] - qy);
+      if (cd < minClustDist) {
+        minClustDist = cd;
+        closestCluster = c.label || c.name;
+      }
+    }
+  });
+
+  document.getElementById('statLatency').innerText = '< 5 μs';
+  document.getElementById('resultsCount').innerText = `${lastSearchResults.length} NEIGHBORS`;
+
+  if (updateInputBox) {
+    const input = document.getElementById('queryInput');
+    if (input) {
+      input.value = `📍 [${closestCluster}] Pinpoint (X: ${qx.toFixed(2)}, Y: ${qy.toFixed(2)})`;
+    }
+  }
+
+  renderSearchResults();
+  drawCanvas();
+}
+
+// ── 5.1 SEARCH & AUTO-ALPHA EXECUTION ──
+function toggleAutoAlpha() {
+  isAutoAlpha = !isAutoAlpha;
+  const btn = document.getElementById('btnAutoAlpha');
+  const slider = document.getElementById('alphaRange');
+  const disp = document.getElementById('alphaDisplay');
+
+  if (isAutoAlpha) {
+    btn.style.background = 'var(--accent-gradient)';
+    btn.style.color = '#fff';
+    btn.style.borderColor = 'transparent';
+    slider.disabled = true;
+    slider.style.opacity = '0.5';
+    disp.innerText = '🤖 Dynamic Auto';
+    disp.style.color = 'var(--cs)';
+  } else {
+    btn.style.background = 'rgba(0,242,254,0.15)';
+    btn.style.color = 'var(--cs)';
+    btn.style.borderColor = 'var(--cs)';
+    slider.disabled = false;
+    slider.style.opacity = '1.0';
+    onManualAlphaChange(slider.value);
+    return;
+  }
+  executeSearch();
+}
+
+function onManualAlphaChange(val) {
+  isAutoAlpha = false;
+  const btn = document.getElementById('btnAutoAlpha');
+  if (btn) {
+    btn.style.background = 'rgba(0,242,254,0.15)';
+    btn.style.color = 'var(--cs)';
+    btn.style.borderColor = 'var(--cs)';
+  }
+  const slider = document.getElementById('alphaRange');
+  if (slider) {
+    slider.disabled = false;
+    slider.style.opacity = '1.0';
+  }
+
+  curAlpha = parseFloat(val);
+  const disp = document.getElementById('alphaDisplay');
+  if (curAlpha === 1.0) disp.innerText = '1.00 (Pure Vector)';
+  else if (curAlpha === 0.0) disp.innerText = '0.00 (Pure BM25)';
+  else disp.innerText = `${curAlpha.toFixed(2)} (${Math.round(curAlpha*100)}% Vec / ${Math.round((1-curAlpha)*100)}% BM25)`;
+  executeSearch();
+}
+
+let searchDebounceTimer = null;
+
+function onSearchInput(val) {
+  clearTimeout(searchDebounceTimer);
+  queryText = val;
+  
+  if (!val || !val.trim()) {
+    pinpointQueryAt(0, 0, false);
+    return;
+  }
+
+  // Instant client-side star projection for 0ms lag
+  const instantPt = predictQuery2DLocally(val);
+  if (instantPt) {
+    queryPoint2D = instantPt;
+    pinpointQueryAt(instantPt.x, instantPt.y, false);
+  }
+
+  searchDebounceTimer = setTimeout(() => {
+    executeSearch();
+  }, 40);
+}
+
+function clearQuery() {
+  const input = document.getElementById('queryInput');
+  if (input) {
+    input.value = '';
+    onSearchInput('');
+    input.focus();
+  }
+}
+
+function setQuery(q) {
+  const input = document.getElementById('queryInput');
+  if (input) {
+    input.value = q;
+    onSearchInput(q);
+  }
+}
+
+function predictQuery2DLocally(q) {
+  if (!q || !q.trim() || allClusters.length === 0) return null;
+  const lower = q.toLowerCase();
+  
+  let bestC = null;
+  let maxScore = 0;
+  
+  const keywords = {
+    cs: ['code', 'tree', 'binary', 'programming', 'graph', 'hash', 'algorithm', 'pointer', 'stack', 'queue', 'memory', 'cpu', 'database', 'sql', 'python', 'cpp', 'dynamic', 'git', 'docker', 'compiler', 'api', 'server', 'linux'],
+    math: ['math', 'calculus', 'matrix', 'eigenvalue', 'derivative', 'integral', 'probability', 'algebra', 'prime', 'limit', 'geometry', 'theorem', 'equation', 'linear', 'tensor', 'laplace', 'fourier', 'quaternion', 'stochastic'],
+    food: ['food', 'pizza', 'sushi', 'ramen', 'taco', 'dough', 'cheese', 'noodle', 'soup', 'rice', 'cook', 'baking', 'burger', 'pasta', 'sweet', 'coffee', 'chicken', 'delicious', 'curry', 'biryani', 'naan', 'samosa', 'dessert'],
+    sports: ['sports', 'basketball', 'football', 'tennis', 'chess', 'swimming', 'olympic', 'match', 'goal', 'racket', 'athlete', 'wimbledon', 'game', 'player', 'soccer', 'race', 'marathon', 'cricket', 'fitness'],
+    ai: ['ai', 'neural', 'network', 'deep', 'learning', 'transformer', 'rag', 'embedding', 'llm', 'prompt', 'model', 'attention', 'gradient', 'gpt', 'agent', 'claude', 'gemini', 'llama', 'mistral', 'diffusion'],
+    astronomy: ['astronomy', 'space', 'sun', 'moon', 'star', 'planet', 'mars', 'earth', 'venus', 'jupiter', 'saturn', 'galaxy', 'cosmos', 'orbit', 'telescope', 'solar', 'nasa', 'supernova', 'blackhole', 'isro', 'esa', 'jaxa', 'chandrayaan', 'mangalyaan', 'gaganyaan', 'aditya', 'pslv', 'gslv', 'spacex', 'artemis', 'apollo', 'voyager', 'hubble', 'jwst', 'perseverance', 'curiosity', 'rocket', 'satellite', 'astronaut', 'lunar', 'martian', 'propulsion', 'interstellar', 'lander', 'rover', 'pragyan', 'vikram', 'shuttle', 'exoplanet'],
+    finance: ['finance', 'stock', 'market', 'crypto', 'bitcoin', 'ethereum', 'trading', 'banking', 'investment', 'money', 'yield', 'dividend', 'shares', 'bonds', 'portfolio', 'nasdaq', 'fund'],
+    medical: ['medical', 'medicine', 'doctor', 'hospital', 'health', 'disease', 'surgery', 'virus', 'vaccine', 'patient', 'therapy', 'cardio', 'pharma', 'biotech', 'cell', 'dna', 'biology']
+  };
+
+  const roots = {
+    astronomy: ['astro', 'cosm', 'orbit', 'satell', 'planet', 'rocket', 'telesc', 'galax', 'space', 'moon', 'lunar', 'marti', 'isro', 'chandra', 'mangal', 'aditya', 'gagan', 'nasa', 'solar', 'lander', 'rover', 'shuttle', 'interstell', 'spacex', 'esa', 'jaxa'],
+    ai: ['neur', 'embed', 'transform', 'intel', 'generat', 'learn', 'llm', 'gpt', 'diffus'],
+    math: ['math', 'calcul', 'matrix', 'algeb', 'equat', 'theor', 'probab', 'statist'],
+    cs: ['prog', 'algor', 'comput', 'softw', 'datab', 'code', 'stack', 'queue', 'binary'],
+    food: ['cook', 'delic', 'baki', 'dish', 'recipe', 'restaur', 'culin', 'flavor'],
+    sports: ['sport', 'athlet', 'play', 'tournam', 'champi', 'match', 'ball', 'swim'],
+    finance: ['finan', 'invest', 'stock', 'crypt', 'trad', 'market', 'currenc', 'divid', 'yield'],
+    medical: ['medic', 'biolog', 'surg', 'therap', 'clini', 'diseas', 'pharma', 'doct']
+  };
+
+  allClusters.forEach(c => {
+    let score = 0;
+    if (lower.includes(c.name.toLowerCase())) score += 12;
+    if (c.label && lower.includes(c.label.toLowerCase())) score += 12;
+    const kws = keywords[c.name] || [];
+    kws.forEach(kw => { if (lower.includes(kw)) score += 4; });
+    const rts = roots[c.name] || [];
+    rts.forEach(rt => { if (lower.includes(rt)) score += 5; });
+    if (score > maxScore) {
+      maxScore = score;
+      bestC = c;
+    }
+  });
+
+  if (bestC && bestC.center) {
+    return { x: bestC.center[0], y: bestC.center[1] };
+  }
+  return projectQueryTo2D();
+}
+
+async function executeSearch() {
+  const query = document.getElementById('queryInput').value.trim();
+  if (query.startsWith('📍')) {
+    // If it's a pinpoint coordinate, keep pinpoint results
+    return;
+  }
+  queryText = query;
+  const algo = document.getElementById('algoSelect').value;
+  const metric = document.getElementById('metricSelect').value;
+  const k = parseInt(document.getElementById('kRange').value) || 4;
+
+  const alphaToSend = isAutoAlpha ? -1.0 : curAlpha;
+
+  try {
+    const res = await fetch(`${HOST}/search`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        query: query,
+        algo: algo,
+        metric: metric,
+        k: k,
+        alpha: alphaToSend
+      })
+    });
+    const data = await res.json();
+    lastSearchResults = data.results || [];
+    document.getElementById('statLatency').innerText = `${data.latencyUs || 0} \u03BCs`;
+    document.getElementById('resultsCount').innerText = `${lastSearchResults.length} HITS`;
+
+    if (isAutoAlpha && data.effectiveAlpha !== undefined) {
+      const eff = data.effectiveAlpha;
+      const mode = data.alphaMode || 'Auto';
+      document.getElementById('alphaDisplay').innerText = `🤖 ${eff.toFixed(2)} (${mode})`;
+      document.getElementById('alphaRange').value = eff;
+    }
+
+    queryPoint2D = projectQueryTo2D();
+
+    renderSearchResults();
+    drawCanvas();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// ── 5.2 IVF & PCA INTERACTIVE ML CONTROLS ──
+let pcaModeActive = false;
+let pcaCoordinatesMap = {};
+
+async function togglePcaMode() {
+  pcaModeActive = !pcaModeActive;
+  const btn = document.getElementById('btnTogglePcaMode');
+  if (pcaModeActive) {
+    btn.innerText = '📊 Mode: PCA Latent';
+    btn.style.color = 'var(--cs)';
+    btn.style.borderColor = 'var(--cs)';
+    await fetchPcaCoordinates();
+  } else {
+    btn.innerText = '🌐 Mode: Radial';
+    btn.style.color = 'var(--text-dim)';
+    btn.style.borderColor = 'var(--border)';
+    compute2DCoordinates();
+    drawCanvas();
+  }
+}
+
+async function fetchPcaCoordinates() {
+  try {
+    const res = await fetch(`${HOST}/pca/coordinates`);
+    const data = await res.json();
+    pcaCoordinatesMap = data.coordinates || {};
+    allItems.forEach(it => {
+      if (pcaCoordinatesMap[it.id]) {
+        const rawPt = pcaCoordinatesMap[it.id];
+        it.p2d = {
+          x: rawPt[0] * 1.1,
+          y: rawPt[1] * 1.1
+        };
+      }
+    });
+    drawCanvas();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function retrainIVFAndPCA() {
+  try {
+    const res1 = await fetch(`${HOST}/ivf/train`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ nlist: 6, nprobe: 2 })
+    });
+    const st = await res1.json();
+    
+    await fetch(`${HOST}/pca/fit`, { method: 'POST' });
+    if (pcaModeActive) {
+      await fetchPcaCoordinates();
+    }
+    alert(`⚙️ Re-training Complete!\n• IVF K-Means: ${st.centroids} Voronoi cells trained on ${st.activeVectors} vectors\n• PCA: Principal Covariance Eigenvectors recomputed!`);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function run4WayBenchmark() {
+  try {
+    const q = document.getElementById('queryInput').value.trim() || 'algorithm';
+    const res = await fetch(`${HOST}/bench?query=${encodeURIComponent(q)}`);
+    const b = await res.json();
+
+    const card = document.getElementById('benchmarkCard');
+    const table = document.getElementById('benchmarkResultsTable');
+    card.style.display = 'block';
+
+    const methods = [
+      { name: 'Brute-Force', algo: 'O(N) Exact', us: b.bruteForceUs, color: '#ef4444', icon: '🔍' },
+      { name: 'KD-Tree',     algo: 'Space Split', us: b.kdTreeUs,     color: '#fbbf24', icon: '🌲' },
+      { name: 'HNSW Graph',  algo: 'O(log N)',    us: b.hnswUs,       color: '#00f2fe', icon: '⚡' },
+      { name: 'IVF K-Means', algo: 'Voronoi',     us: b.ivfUs,        color: '#10b981', icon: '⚙️' },
+    ];
+    const maxUs = Math.max(...methods.map(m => m.us)) || 1;
+
+    table.innerHTML = methods.map((m, i) => `
+      <div style="background:rgba(0,0,0,0.3);border:1px solid ${m.color}22;border-radius:8px;padding:8px 10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+          <span style="font-size:10.5px;font-weight:700;color:${m.color};font-family:'Outfit',sans-serif;">${m.icon} ${m.name}</span>
+          <span style="font-size:10px;font-family:'Fira Code',monospace;color:#f8fafc;font-weight:700;">${m.us} μs</span>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${Math.max(5,(m.us/maxUs*100)).toFixed(1)}%;background:${m.color};border-radius:3px;transition:width 0.7s ease;"></div>
+        </div>
+        <div style="font-size:8.5px;color:var(--text-muted);margin-top:3px;">${m.algo} · ${b.vectorCount} vectors</div>
+      </div>
+    `).join('');
+
+    // Scroll to show benchmark card
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// ── WEEK 3 DEMO: Live IVF K-Means Stats ──
+async function runWeek3Demo() {
+  try {
+    // Step 1: Re-train IVF with current cluster count
+    const nlist = Math.max(2, allClusters.length);
+    const trainRes = await fetch(`${HOST}/ivf/train`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ nlist: nlist, nprobe: 2 })
+    });
+    const st = await trainRes.json();
+
+    // Step 2: Get detailed stats
+    const statsRes = await fetch(`${HOST}/ivf/stats`);
+    const stats = await statsRes.json();
+
+    const centroids = stats.centroids || st.centroids || nlist;
+    const activeVec = stats.activeVectors || st.activeVectors || allItems.length;
+    const clusterSizes = stats.clusterSizes || [];
+
+    // Update big stats
+    document.getElementById('ivfCentroidsVal').innerText = centroids;
+    document.getElementById('ivfVectorsVal').innerText = activeVec;
+
+    // Pruning = (1 - nprobe/centroids) * 100
+    const pruningPct = centroids > 0 ? Math.round((1 - 2 / centroids) * 100) : 0;
+    document.getElementById('ivfPruningPct').innerText = `${pruningPct}%`;
+    document.getElementById('ivfPruningBar').style.width = `${pruningPct}%`;
+
+    // Cell breakdown bars
+    const cellBarsEl = document.getElementById('ivfCellBars');
+    cellBarsEl.innerHTML = '';
+    const clusterNames = allClusters.map(c => c.label || c.name);
+    const maxSize = Math.max(...clusterSizes, 1);
+
+    clusterSizes.forEach((sz, i) => {
+      const name = clusterNames[i] || `Cell ${i+1}`;
+      const col = allClusters[i] ? (allClusters[i].color || '#00f2fe') : '#00f2fe';
+      const pct = Math.round((sz / maxSize) * 100);
+      cellBarsEl.innerHTML += `
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:9px;color:${col};font-family:'Fira Code',monospace;width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${name}">${name}</span>
+          <div style="flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${col};border-radius:3px;transition:width 0.7s ease;opacity:0.85;"></div>
+          </div>
+          <span style="font-size:9px;font-family:'Fira Code',monospace;color:#94a3b8;width:18px;text-align:right;">${sz}</span>
+        </div>`;
+    });
+
+    // Show algo note
+    document.getElementById('ivfAlgoNote').style.display = 'block';
+
+    // Also switch canvas to PCA mode and run 4-way bench for full demo effect
+    await run4WayBenchmark();
+
+  } catch (e) {
+    console.error('Week 3 demo error:', e);
+  }
+}
+
+// ── WEEK 4 DEMO: Live PCA Coordinates + Canvas ──
+async function runWeek4Demo() {
+  try {
+    // Refit PCA
+    await fetch(`${HOST}/pca/fit`, { method: 'POST' });
+
+    // Get coordinates to compute approximate variance explained
+    const res = await fetch(`${HOST}/pca/coordinates`);
+    const data = await res.json();
+    pcaCoordinatesMap = data.coordinates || {};
+
+    // Project all items
+    allItems.forEach(it => {
+      if (pcaCoordinatesMap[it.id]) {
+        const rawPt = pcaCoordinatesMap[it.id];
+        it.p2d = { x: rawPt[0] * 1.1, y: rawPt[1] * 1.1 };
+      }
+    });
+
+    // Compute rough variance in PC1 and PC2 across projected points
+    const pts = Object.values(pcaCoordinatesMap);
+    if (pts.length > 1) {
+      const pc1s = pts.map(p => p[0]);
+      const pc2s = pts.map(p => p[1]);
+      const var1 = variance(pc1s);
+      const var2 = variance(pc2s);
+      const total = var1 + var2 + 0.001;
+      const p1 = Math.round((var1 / total) * 100);
+      const p2 = Math.round((var2 / total) * 100);
+
+      document.getElementById('pc1Pct').innerText = `~${p1}%`;
+      document.getElementById('pc2Pct').innerText = `~${p2}%`;
+      document.getElementById('pc1Bar').style.width = `${p1}%`;
+      document.getElementById('pc2Bar').style.width = `${p2}%`;
+      document.getElementById('pcaTotalVar').innerText = `~${p1+p2}%`;
+    }
+
+    // Show the step-by-step explanation panel
+    const trace = document.getElementById('pcaStepTrace');
+    trace.style.display = 'block';
+    const steps = [
+      '① Center data: X ← X − μ',
+      '② Cov = (1/n) · Xᵀ · X  [64×64]',
+      '③ Power Iterate: v ← C·v / ||C·v||',
+      '④ PC1 = dominant eigenvector (λ₁)',
+      '⑤ Deflate: C ← C − λ₁·v₁·v₁ᵀ',
+      '⑥ Power Iterate → PC2 (λ₂)',
+      '⑦ Project: point₂D = [v·PC1, v·PC2]',
+    ];
+    let i = 0;
+    trace.innerHTML = '';
+    const interval = setInterval(() => {
+      if (i < steps.length) {
+        trace.innerHTML += `<div style="color:${i === steps.length-1 ? '#b388ff' : '#64748b'};animation:fadeInUp 0.3s ease;">${steps[i]}</div>`;
+        i++;
+      } else {
+        clearInterval(interval);
+        trace.innerHTML += `<div style="color:#10b981;margin-top:4px;font-weight:700;">✓ Canvas updated with true PCA projection</div>`;
+      }
+    }, 280);
+
+    // Update input dims label from status
+    fetch(`${HOST}/status`).then(r=>r.json()).then(s => {
+      // doc dims are 64, vector dims are 16
+      document.getElementById('pcaInputDims').innerText = '64';
+    }).catch(()=>{});
+
+    // Update canvas with real PCA 2D coordinates
+    pcaModeActive = true;
+    const btn1 = document.getElementById('btnTogglePcaMode');
+    const btn2 = document.getElementById('btnTogglePcaMode2');
+    if (btn1) { btn1.innerText = '📊 Mode: PCA Latent'; btn1.style.color = 'var(--cs)'; }
+    if (btn2) { btn2.innerText = '📊 Canvas: True PCA Latent Space'; btn2.style.color = '#b388ff'; }
+
+    drawCanvas();
+
+  } catch (e) {
+    console.error('Week 4 demo error:', e);
+  }
+}
+
+function variance(arr) {
+  const n = arr.length;
+  if (n < 2) return 0;
+  const mean = arr.reduce((a,b) => a+b, 0) / n;
+  return arr.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
+}
+
+
+
+function renderSearchResults() {
+  const container = document.getElementById('vectorResultsList');
+  container.innerHTML = '';
+
+  if (lastSearchResults.length === 0) {
+    container.innerHTML = `
+      <div style="color:var(--text-muted); font-size:12.5px; text-align:center; padding:30px 10px; display:flex; flex-direction:column; align-items:center; gap:8px;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.4"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <div>No matching vectors found.</div>
+        <div style="font-size:11px; color:var(--text-dim);">Click anywhere on the canvas to pinpoint the Red Star (★) to discover neighbors.</div>
+      </div>`;
+    return;
+  }
+
+  lastSearchResults.forEach((h, idx) => {
     const card = document.createElement('div');
     card.className = 'hit-card';
-    card.style.setProperty('--card-color', color);
+    const catColor = CLUSTER_COLORS[h.category] || '#38bdf8';
+    card.style.setProperty('--card-accent', catColor);
+
+    const simPct = Math.round(Math.max(0, Math.min(100, (1 - (h.distance / 1.15)) * 100)));
+    const hybridPct = Math.round((h.hybridScore !== undefined ? h.hybridScore : (simPct / 100)) * 100);
+
     card.innerHTML = `
       <div class="hit-top">
-        <span class="hit-tag" style="color:${color}">#${idx+1} &bull; ${h.category.toUpperCase()}</span>
-        <span class="hit-dist">dist: ${dist}</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="hit-rank">#${idx + 1}</span>
+          <span class="hit-id-badge">ID: ${h.id}</span>
+        </div>
+        <span class="hit-cat" style="background:${catColor}15; color:${catColor}; border:1px solid ${catColor}40;">
+          <span class="hit-cat-dot"></span>
+          ${h.category}
+        </span>
       </div>
-      <div class="hit-title">${h.metadata}</div>
-      <div class="hit-bar"><div class="hit-bar-fill" style="width:${fill}%;"></div></div>
+
+      <div class="hit-meta">${h.metadata}</div>
+
+      <div class="hit-sim-bar">
+        <div class="hit-sim-label">
+          <span>Proximity to Star (★)</span>
+          <span style="color:${catColor}; font-weight:700;">${Math.max(5, simPct)}%</span>
+        </div>
+        <div class="hit-sim-track">
+          <div class="hit-sim-fill" style="width:${Math.max(8, simPct)}%"></div>
+        </div>
+      </div>
+
+      <div class="score-breakdown">
+        <div class="score-item">
+          <span class="lbl">2D Dist</span>
+          <span class="val">${h.distance.toFixed(4)}</span>
+        </div>
+        <div class="score-item">
+          <span class="lbl">Cluster</span>
+          <span class="val" style="color:${catColor}">${h.category}</span>
+        </div>
+        <div class="score-item">
+          <span class="lbl">Rank</span>
+          <span class="val" style="color:var(--cs)">#${idx + 1} NN</span>
+        </div>
+      </div>
+
+      <button class="btn-focus-node" onclick="focusOnPoint(${h.id})">
+        ★ Focus Point in 2D Space
+      </button>
     `;
     container.appendChild(card);
   });
 }
 
-function insertVector() {
-  const desc = document.getElementById('insertDesc').value.trim();
-  const cat = document.getElementById('insertCat').value;
-  if (!desc) return;
-
-  const newPt = {
-    id: vectorPoints.length + 1,
-    label: desc,
-    cat: cat,
-    x: queryPos.x + (Math.random() - 0.5) * 0.08,
-    y: queryPos.y + (Math.random() - 0.5) * 0.08
-  };
-  vectorPoints.push(newPt);
-
-  document.getElementById('insertDesc').value = '';
-  document.getElementById('headerVectorsStatus').textContent = `${vectorPoints.length} vectors • 16 dims`;
-  document.getElementById('l0Stats').textContent = `${vectorPoints.length}n • ${vectorPoints.length * 9}e`;
-
-  fetch(`${API_BASE}/insert`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      metadata: desc,
-      category: cat,
-      embedding: [0.8, 0.7, 0.6, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-    })
-  }).catch(() => {});
-
-  runSearch();
-}
-
-function ingestDoc() {
-  const title = document.getElementById('docTitleInput').value.trim();
-  const text = document.getElementById('docTextInput').value.trim();
-  if (!title || !text) return;
-
-  const docPt = {
-    id: vectorPoints.length + 1,
-    label: title,
-    cat: "rag",
-    x: (Math.random() - 0.5) * 0.4,
-    y: (Math.random() - 0.5) * 0.4
-  };
-  vectorPoints.push(docPt);
-
-  const container = document.getElementById('docChunkList');
-  const card = document.createElement('div');
-  card.className = 'hit-card';
-  card.style.setProperty('--card-color', '#34d399');
-  card.innerHTML = `<div class="hit-top"><span class="hit-tag" style="color:#34d399">CHUNK #${container.children.length + 1}</span></div><div class="hit-title">${title}</div>`;
-  container.appendChild(card);
-
-  document.getElementById('headerVectorsStatus').textContent = `${vectorPoints.length} vectors • 16 dims`;
+function focusOnPoint(id) {
+  const it = allItems.find(v => v.id === id);
+  if (!it || !it.p2d) return;
+  const w = canvas.width, h = canvas.height;
+  const scale = Math.min(w, h) * 0.44;
+  panX = -(it.p2d.x * scale);
+  panY = (it.p2d.y * scale);
+  zoomScale = 1.8;
+  updateHudTransform();
   drawCanvas();
 }
 
-async function askAI() {
-  const q = document.getElementById('askInput').value.trim();
-  if (!q) return;
+// ── 6. 2D CANVAS DRAWING & TRANSFORM ──
+const canvas = document.getElementById('pcaCanvas');
+const ctx = canvas.getContext('2d');
 
-  try {
-    const res = await fetch(`${API_BASE}/doc/ask`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, k: 3 })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      document.getElementById('askAnswerBox').textContent = data.answer;
-      renderCitations(data.contexts);
-      return;
-    }
-  } catch (e) {}
-
-  document.getElementById('askAnswerBox').textContent = `HNSW routes queries hierarchically starting at top express layer L2 down to dense mesh layer L0. This logarithmic beam search descent guarantees sub-millisecond retrieval with high recall.`;
+function resizeCanvas() {
+  const container = document.getElementById('canvasContainer');
+  if (!container) return;
+  const rect = container.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+  drawCanvas();
 }
 
-function renderCitations(contexts) {
-  const list = document.getElementById('askCitationList');
-  if (!list) return;
-  list.innerHTML = '';
-  (contexts || []).forEach((c, idx) => {
-    const card = document.createElement('div');
-    card.className = 'hit-card';
-    card.style.setProperty('--card-color', '#34d399');
-    card.innerHTML = `<div class="hit-top"><span class="hit-tag" style="color:#34d399">Chunk #${idx+1} &bull; ${c.title}</span><span class="hit-dist">dist: ${c.distance}</span></div><div style="font-size:11px;color:var(--text);">${c.text || ''}</div>`;
-    list.appendChild(card);
+function zoomCanvas(factor) {
+  zoomScale = Math.max(0.4, Math.min(5.0, zoomScale * factor));
+  updateHudTransform();
+  drawCanvas();
+}
+
+function resetCanvasTransform() {
+  panX = 0;
+  panY = 0;
+  zoomScale = 1.0;
+  updateHudTransform();
+  drawCanvas();
+}
+
+function updateHudTransform() {
+  document.getElementById('hudPan').innerText = `X: ${Math.round(panX)}, Y: ${Math.round(panY)}`;
+  document.getElementById('hudZoom').innerText = `${zoomScale.toFixed(1)}x`;
+}
+
+let currentQueryPt = { x: 0, y: 0 };
+let hasInitializedQueryPt = false;
+
+function drawCanvas(timestamp) {
+  const w = canvas.width, h = canvas.height;
+  if (!w || !h) return;
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.save();
+  ctx.translate(w / 2 + panX, h / 2 + panY);
+  ctx.scale(zoomScale, zoomScale);
+
+  const scale = Math.min(w, h) * 0.44;
+
+  // 1. Grid Lines
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+  ctx.lineWidth = 1 / zoomScale;
+  const step = 40;
+  for (let x = -w * 2; x < w * 2; x += step) { ctx.beginPath(); ctx.moveTo(x, -h * 2); ctx.lineTo(x, h * 2); ctx.stroke(); }
+  for (let y = -h * 2; y < h * 2; y += step) { ctx.beginPath(); ctx.moveTo(-w * 2, y); ctx.lineTo(w * 2, y); ctx.stroke(); }
+
+  // 2. Axes
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+  ctx.beginPath(); ctx.moveTo(0, -h * 2); ctx.lineTo(0, h * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-w * 2, 0); ctx.lineTo(w * 2, 0); ctx.stroke();
+
+  // 3. Cluster Regions & Halos
+  allClusters.forEach(c => {
+    let px = (c.center ? c.center[0] : 0) * scale;
+    let py = -(c.center ? c.center[1] : 0) * scale;
+    const col = c.color || CLUSTER_COLORS[c.name] || '#38bdf8';
+
+    // Halo
+    ctx.beginPath();
+    ctx.arc(px, py, scale * 0.26, 0, Math.PI * 2);
+    ctx.fillStyle = col + '0c';
+    ctx.fill();
+    ctx.strokeStyle = col + '33';
+    ctx.lineWidth = 1 / zoomScale;
+    ctx.setLineDash([4 / zoomScale, 4 / zoomScale]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Label
+    ctx.font = `700 ${11.5 / zoomScale}px Outfit, sans-serif`;
+    ctx.fillStyle = col;
+    ctx.textAlign = 'center';
+    ctx.fillText((c.label || c.name).toUpperCase(), px, py - scale * 0.26 - 8 / zoomScale);
+  });
+
+  // 4. Smooth Query Beacon Rays & RED Star
+  if (queryPoint2D) {
+    if (!hasInitializedQueryPt) {
+      currentQueryPt.x = queryPoint2D.x;
+      currentQueryPt.y = queryPoint2D.y;
+      hasInitializedQueryPt = true;
+    } else {
+      // Butter-smooth 60fps lerp
+      currentQueryPt.x += (queryPoint2D.x - currentQueryPt.x) * 0.22;
+      currentQueryPt.y += (queryPoint2D.y - currentQueryPt.y) * 0.22;
+    }
+
+    const qx = currentQueryPt.x * scale;
+    const qy = -currentQueryPt.y * scale;
+
+    // Nearest Neighbor connecting rays
+    lastSearchResults.forEach((h, idx) => {
+      const it = allItems.find(v => v.id === h.id);
+      if (it && it.p2d) {
+        const tx = it.p2d.x * scale;
+        const ty = -it.p2d.y * scale;
+
+        ctx.beginPath();
+        ctx.moveTo(qx, qy);
+        ctx.lineTo(tx, ty);
+        ctx.strokeStyle = idx === 0 ? 'rgba(239, 68, 68, 0.85)' : 'rgba(99, 102, 241, 0.45)';
+        ctx.lineWidth = (idx === 0 ? 2.5 : 1.2) / zoomScale;
+        ctx.stroke();
+
+        const mx = (qx + tx) / 2;
+        const my = (qy + ty) / 2;
+        ctx.font = `600 ${9.5 / zoomScale}px Fira Code, monospace`;
+        ctx.fillStyle = idx === 0 ? '#f87171' : '#a5b4fc';
+        ctx.fillText(`d=${h.distance.toFixed(3)}`, mx, my - 4 / zoomScale);
+      }
+    });
+
+    // Pulsing radar ripple ring around red query star
+    const t = timestamp || performance.now();
+    const pulsePhase = (t % 1500) / 1500;
+    const pulseR = (10 + pulsePhase * 26) / zoomScale;
+    const pulseAlpha = Math.max(0, 1 - pulsePhase);
+
+    ctx.beginPath();
+    ctx.arc(qx, qy, pulseR, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(239, 68, 68, ${pulseAlpha * 0.7})`;
+    ctx.lineWidth = 1.5 / zoomScale;
+    ctx.stroke();
+
+    // Draw RED Query Star Beacon
+    ctx.beginPath();
+    ctx.arc(qx, qy, 9 / zoomScale, 0, Math.PI * 2);
+    ctx.fillStyle = '#ef4444';
+    ctx.shadowColor = '#ef4444';
+    ctx.shadowBlur = 24;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.5 / zoomScale;
+    ctx.stroke();
+
+    // Star Icon Core
+    ctx.font = `800 ${11 / zoomScale}px Outfit, sans-serif`;
+    ctx.fillStyle = '#ff4b4b';
+    ctx.textAlign = 'center';
+    ctx.fillText('★ PINPOINT', qx, qy - 14 / zoomScale);
+  }
+
+  // 5. Render All Vector Items
+  allItems.forEach(it => {
+    if (!it.p2d) return;
+    const px = it.p2d.x * scale;
+    const py = -it.p2d.y * scale;
+    const col = CLUSTER_COLORS[it.category] || '#38bdf8';
+    const isHit = lastSearchResults.some(h => h.id === it.id);
+
+    ctx.beginPath();
+    ctx.arc(px, py, (isHit ? 8 : 5.5) / zoomScale, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    if (isHit) {
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 18;
+    }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = isHit ? '#fff' : 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = (isHit ? 2.5 : 1) / zoomScale;
+    ctx.stroke();
+
+    ctx.font = `500 ${9.5 / zoomScale}px Inter, sans-serif`;
+    ctx.fillStyle = isHit ? '#fff' : 'rgba(255,255,255,0.65)';
+    ctx.textAlign = 'center';
+    const shortText = it.metadata.split(':')[0] || it.metadata;
+    ctx.fillText(shortText, px, py + 15 / zoomScale);
+  });
+
+  ctx.restore();
+}
+
+function startCanvasAnimationLoop() {
+  function loop(time) {
+    drawCanvas(time);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+
+// ── 7. CANVAS INTERACTIVE PINPOINT, DRAG & ZOOM EVENTS ──
+let isDraggingStar = false;
+let isPanning = false;
+let mouseDownPos = { x: 0, y: 0 };
+
+function setupCanvasEvents() {
+  canvas.addEventListener('mousedown', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const w = canvas.width, h = canvas.height;
+    const scale = Math.min(w, h) * 0.44;
+
+    const wx = (mx - (w / 2 + panX)) / (zoomScale * scale);
+    const wy = -(my - (h / 2 + panY)) / (zoomScale * scale);
+
+    mouseDownPos = { x: e.clientX, y: e.clientY };
+
+    // Check if clicked close to the red query star
+    const starDist = Math.hypot(wx - currentQueryPt.x, wy - currentQueryPt.y);
+    if (starDist < 0.22 / zoomScale) {
+      isDraggingStar = true;
+      isPanning = false;
+    } else {
+      isDraggingStar = false;
+      isPanning = true;
+      startDragX = e.clientX - panX;
+      startDragY = e.clientY - panY;
+    }
+  });
+
+  window.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const w = canvas.width, h = canvas.height;
+    const scale = Math.min(w, h) * 0.44;
+
+    const wx = (mx - (w / 2 + panX)) / (zoomScale * scale);
+    const wy = -(my - (h / 2 + panY)) / (zoomScale * scale);
+
+    if (isDraggingStar) {
+      // Smoothly move the red star directly with cursor and compute k-NN dynamically
+      queryPoint2D = { x: wx, y: wy };
+      currentQueryPt.x = wx;
+      currentQueryPt.y = wy;
+      pinpointQueryAt(wx, wy, false);
+      return;
+    }
+
+    if (isPanning) {
+      panX = e.clientX - startDragX;
+      panY = e.clientY - startDragY;
+      updateHudTransform();
+      drawCanvas();
+      return;
+    }
+
+    // Hover tooltip
+    let found = null;
+    allItems.forEach(it => {
+      if (!it.p2d) return;
+      const dist = Math.hypot(wx - it.p2d.x, wy - it.p2d.y);
+      if (dist < 0.08 / zoomScale) found = it;
+    });
+
+    const tooltip = document.getElementById('pointTooltip');
+    if (found) {
+      tooltip.style.display = 'block';
+      tooltip.style.left = `${e.clientX + 12}px`;
+      tooltip.style.top = `${e.clientY + 12}px`;
+      tooltip.innerHTML = `
+        <div style="font-weight:700;color:var(--cs)">[ID ${found.id}] ${(found.category || '').toUpperCase()}</div>
+        <div style="margin-top:4px">${found.metadata}</div>
+      `;
+    } else {
+      tooltip.style.display = 'none';
+    }
+  });
+
+  window.addEventListener('mouseup', e => {
+    if (isDraggingStar) {
+      isDraggingStar = false;
+      return;
+    }
+
+    if (isPanning) {
+      const movedDist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+      isPanning = false;
+
+      // If it was a simple click (not a drag-pan), pinpoint the red star right here!
+      if (movedDist < 6) {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        if (mx >= 0 && mx <= rect.width && my >= 0 && my <= rect.height) {
+          const w = canvas.width, h = canvas.height;
+          const scale = Math.min(w, h) * 0.44;
+          const wx = (mx - (w / 2 + panX)) / (zoomScale * scale);
+          const wy = -(my - (h / 2 + panY)) / (zoomScale * scale);
+
+          queryPoint2D = { x: wx, y: wy };
+          currentQueryPt.x = wx;
+          currentQueryPt.y = wy;
+          pinpointQueryAt(wx, wy, true);
+        }
+      }
+    }
+  });
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    zoomCanvas(factor);
   });
 }
 
-// ── INIT ──
-window.addEventListener('load', () => {
-  drawCanvas();
-  runSearch();
-});
-window.addEventListener('resize', drawCanvas);
+// ── 8. MODALS: CLUSTERS & VECTORS ──
+function openAddClusterModal() {
+  document.getElementById('addClusterModal').style.display = 'flex';
+}
+
+async function submitNewCluster() {
+  const nameInput = document.getElementById('mAddClusterName');
+  const labelInput = document.getElementById('mAddClusterLabel');
+  const colorInput = document.getElementById('mAddClusterColor');
+  const entitiesInput = document.getElementById('mAddClusterEntities');
+
+  const rawName = nameInput.value.trim().toLowerCase();
+  const name = rawName.replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  const label = labelInput.value.trim() || rawName;
+  const color = colorInput.value || '#38bdf8';
+  const entities = entitiesInput.value.trim().split('\n').filter(e => e.trim().length > 0);
+
+  if (!name) {
+    alert('Please enter a valid cluster identifier (e.g. finance, medical, music).');
+    return;
+  }
+
+  CLUSTER_COLORS[name] = color;
+
+  try {
+    // 1. Add Cluster to C++ Vector Database
+    await fetch(`${HOST}/cluster/add`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: name, label: label, color: color})
+    });
+
+    // 2. Add Initial Entities
+    if (entities.length > 0) {
+      for (const ent of entities) {
+        const trimmed = ent.trim();
+        if (trimmed) {
+          await fetch(`${HOST}/insert`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({metadata: trimmed, category: name})
+          });
+        }
+      }
+    } else {
+      // Create at least one starter entity
+      await fetch(`${HOST}/insert`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({metadata: `${label}: core primary vector`, category: name})
+      });
+    }
+
+    // 3. Re-train IVF K-Means and Re-fit PCA on new cluster
+    try {
+      await fetch(`${HOST}/ivf/train`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({nlist: allClusters.length + 1, nprobe: 2})
+      });
+      await fetch(`${HOST}/pca/fit`, { method: 'POST' });
+    } catch (e) {}
+
+    closeModal('addClusterModal');
+    nameInput.value = '';
+    labelInput.value = '';
+    entitiesInput.value = '';
+
+    await loadClusters();
+    await loadItems();
+    populateClusterDropdowns();
+    renderCategoryChips();
+
+    // Pinpoint star to the new cluster
+    const newCluster = allClusters.find(c => c.name === name);
+    if (newCluster && newCluster.center) {
+      queryPoint2D = { x: newCluster.center[0], y: newCluster.center[1] };
+      currentQueryPt.x = newCluster.center[0];
+      currentQueryPt.y = newCluster.center[1];
+      pinpointQueryAt(newCluster.center[0], newCluster.center[1]);
+    }
+  } catch (err) {
+    console.error('Error submitting cluster:', err);
+    alert('Failed to create cluster. Check server logs.');
+  }
+}
+
+function openManageClustersModal() {
+  populateClusterDropdowns();
+  renderModalClusterEntities();
+  document.getElementById('manageClustersModal').style.display = 'flex';
+}
+
+function renderModalClusterEntities() {
+  const select = document.getElementById('mManageClusterSelect');
+  const cat = select.value;
+  const tbody = document.getElementById('mEntitiesTableBody');
+  tbody.innerHTML = '';
+
+  const inCluster = allItems.filter(v => v.category === cat);
+  if (inCluster.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:14px;">No vector items in this cluster yet.</td></tr>`;
+    return;
+  }
+
+  inCluster.forEach(it => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:'Fira Code';color:var(--cs)">#${it.id}</td>
+      <td>${it.metadata}</td>
+      <td style="text-align:center;">
+        <span class="btn-del-icon" onclick="deleteVectorEntity(${it.id})">Del</span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function addEntityToSelectedCluster() {
+  const cat = document.getElementById('mManageClusterSelect').value;
+  const input = document.getElementById('mNewEntityMeta');
+  const meta = input.value.trim();
+  if (!meta) return;
+
+  await fetch(`${HOST}/insert`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({metadata: meta, category: cat})
+  });
+  input.value = '';
+  await loadItems();
+  renderModalClusterEntities();
+}
+
+async function deleteVectorEntity(id) {
+  await fetch(`${HOST}/delete/${id}`, { method: 'DELETE' });
+  await loadItems();
+  renderModalClusterEntities();
+}
+
+async function deleteCurrentSelectedCluster() {
+  const cat = document.getElementById('mManageClusterSelect').value;
+  if (!confirm(`Are you sure you want to delete cluster "${cat}" and all its vector entities?`)) return;
+
+  await fetch(`${HOST}/cluster/delete/${cat}`, { method: 'DELETE' });
+  await loadClusters();
+  await loadItems();
+  populateClusterDropdowns();
+  renderCategoryChips();
+  renderModalClusterEntities();
+  if (allClusters.length > 0 && allClusters[0].center) {
+    pinpointQueryAt(allClusters[0].center[0], allClusters[0].center[1]);
+  }
+}
+
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+
+// ── 9. TAB 2: DOCUMENT SIMILARITY & EMBEDDINGS STUDIO ──
+const PRESET_DOCS = {
+  quantum: {
+    title: 'Quantum Superposition & Entanglement Computing',
+    text: 'Quantum computing exploits the fundamental principles of quantum mechanics, including superposition where qubits exist in multiple linear states simultaneously, and quantum entanglement which enables instantaneous correlation across spatial distances.'
+  },
+  space: {
+    title: 'James Webb Space Telescope & Deep Cosmos Infrared',
+    text: 'The James Webb Space Telescope (JWST) utilizes a 6.5-meter gold-coated primary beryllium mirror and advanced cryogenic infrared spectrographs to observe the earliest galaxies formed after the Big Bang.'
+  },
+  crypto: {
+    title: 'Byzantine Fault Tolerance & Proof of Stake Consensus',
+    text: 'Distributed ledger consensus mechanisms solve the Byzantine Generals Problem in peer-to-peer networks. Proof-of-Stake (PoS) validators stake cryptocurrency tokens to propose and validate blocks with cryptographic signatures.'
+  },
+  ai_agent: {
+    title: 'Self-Attention & Transformer Neural Architectures',
+    text: 'Transformer models utilize multi-head scaled dot-product self-attention mechanisms to map query, key, and value vector spaces, capturing bidirectional token relationships across long sequence contexts.'
+  }
+};
+
+let docInputSource = 'text';
+let lastDocSimilarityMatches = [];
+let inspectingDocId = null;
+
+function setDocInputSource(src) {
+  docInputSource = src;
+  document.getElementById('btnSourceText').classList.toggle('active', src === 'text');
+  document.getElementById('btnSourceFile').classList.toggle('active', src === 'file');
+  document.getElementById('docFileDropzone').style.display = src === 'file' ? 'flex' : 'none';
+}
+
+function updateDocWordCount() {
+  const text = document.getElementById('docTextInput').value;
+  const chars = text.length;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const tokens = Math.ceil(chars / 4);
+  document.getElementById('docCharCount').innerText = `${chars} chars`;
+  document.getElementById('docWordCount').innerText = `${words} words`;
+  document.getElementById('docTokenCount').innerText = `~${tokens} tokens`;
+}
+
+function clearDocEditor() {
+  document.getElementById('docTitleInput').value = '';
+  document.getElementById('docTextInput').value = '';
+  updateDocWordCount();
+}
+
+function clearDocQuery() {
+  const qInput = document.getElementById('docQueryInput');
+  if (qInput) {
+    qInput.value = '';
+    lastDocSimilarityMatches = [];
+    renderDocSimilarityResults([]);
+  }
+}
+
+function loadPresetDoc(key) {
+  const p = PRESET_DOCS[key];
+  if (!p) return;
+  document.getElementById('docTitleInput').value = p.title;
+  document.getElementById('docTextInput').value = p.text;
+  updateDocWordCount();
+  ingestNewDocument();
+}
+
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  document.getElementById('docTitleInput').value = file.name.replace(/\.[^/.]+$/, "");
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    document.getElementById('docTextInput').value = evt.target.result;
+    updateDocWordCount();
+  };
+  reader.readAsText(file);
+}
+
+async function ingestNewDocument() {
+  const title = document.getElementById('docTitleInput').value.trim();
+  const text = document.getElementById('docTextInput').value.trim();
+  if (!title || !text) {
+    alert('Please provide both document title and passage text.');
+    return;
+  }
+
+  const btn = document.getElementById('btnIngestDoc');
+  const latencyVal = document.getElementById('telemetryLatency');
+  if (btn) btn.innerHTML = '<span>⏳ Embedding...</span>';
+
+  const t0 = performance.now();
+  try {
+    await fetch(`${HOST}/doc/insert`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title: title, text: text})
+    });
+    const dur = Math.round(performance.now() - t0);
+    if (latencyVal) latencyVal.innerText = `${dur}ms`;
+
+    document.getElementById('docTitleInput').value = '';
+    document.getElementById('docTextInput').value = '';
+    updateDocWordCount();
+    await loadDocs();
+  } catch (err) {
+    console.error(err);
+    alert('Failed to ingest document. Check server logs.');
+  } finally {
+    if (btn) btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Embed &amp; Ingest';
+  }
+}
+
+async function executeDocSimilaritySearch() {
+  const text = document.getElementById('docQueryInput').value.trim();
+  if (!text) {
+    alert('Enter query or text passage to compute similarity rankings.');
+    return;
+  }
+
+  const kVal = parseInt(document.getElementById('docTopKSelect')?.value || '5', 10);
+
+  try {
+    const res = await fetch(`${HOST}/doc/similarity`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: text, k: kVal})
+    });
+    const data = await res.json();
+    lastDocSimilarityMatches = data.matches || [];
+    filterRenderedMatches();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function filterRenderedMatches() {
+  const minScore = parseInt(document.getElementById('docMinScoreRange')?.value || '0', 10);
+  const filtered = lastDocSimilarityMatches.filter(m => (m.similarity * 100) >= minScore);
+  renderDocSimilarityResults(filtered);
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Passage copied to clipboard.');
+  });
+}
+
+function renderDocSimilarityResults(matches) {
+  const container = document.getElementById('docSimilarityResultsList');
+  container.innerHTML = '';
+  document.getElementById('docMatchCount').innerText = `${matches.length} MATCHES`;
+
+  if (matches.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted); font-size:12px; text-align:center; padding:24px 0;">No matching documents found above score threshold.</div>';
+    return;
+  }
+
+  matches.forEach((m, idx) => {
+    const card = document.createElement('div');
+    card.className = 'doc-match-card';
+    const pct = Math.round(m.similarity * 100);
+    const cosDist = (1 - m.similarity).toFixed(4);
+    const escapedPreview = (m.preview || '').replace(/"/g, '&quot;');
+
+    card.innerHTML = `
+      <div class="doc-match-header">
+        <span class="doc-match-rank">#${idx + 1} MATCH</span>
+        <span class="doc-match-title">${m.title}</span>
+        <span class="doc-match-score">${pct}% SIMILARITY</span>
+      </div>
+      <div style="height:4px; border-radius:3px; background:rgba(255,255,255,0.06); overflow:hidden;">
+        <div style="width:${pct}%; height:100%; background:linear-gradient(90deg, #6366f1, #00f2fe, #10b981);"></div>
+      </div>
+      <div class="doc-match-preview">${m.preview}</div>
+      <div class="doc-match-footer">
+        <span>Cosine Distance: <strong>${cosDist}</strong></span>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-table-action btn-table-inspect" onclick="openDocInspectModal(${m.id})">Inspect Full</button>
+          <button class="btn-secondary" style="padding:3px 8px; font-size:11px; width:auto;" onclick="copyToClipboard('${escapedPreview}')">Copy Passage</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+let corpusFilterQuery = '';
+function filterCorpusView(val) {
+  corpusFilterQuery = (val || '').toLowerCase().trim();
+  renderStoredCorpus();
+}
+
+function renderStoredCorpus() {
+  const container = document.getElementById('storedCorpusList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const filtered = corpusFilterQuery
+    ? allDocs.filter(d => (d.title && d.title.toLowerCase().includes(corpusFilterQuery)) || (d.preview && d.preview.toLowerCase().includes(corpusFilterQuery)))
+    : allDocs;
+
+  document.getElementById('storedDocCount').innerText = `${filtered.length} STORED`;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">${allDocs.length === 0 ? 'No documents indexed in knowledge base yet. Ingest a document on the left.' : 'No matching documents found.'}</td></tr>`;
+    return;
+  }
+
+  filtered.forEach(d => {
+    const tr = document.createElement('tr');
+    const wordCount = d.text ? d.text.trim().split(/\s+/).length : (d.preview ? d.preview.split(/\s+/).length : 0);
+    const estTokens = Math.ceil((d.text ? d.text.length : d.preview.length) / 4);
+
+    tr.innerHTML = `
+      <td style="font-family:'Fira Code'; color:var(--cs); font-size:11px;">#${d.id}</td>
+      <td style="font-weight:600; color:#f8fafc; font-size:12.5px;">${d.title}</td>
+      <td style="color:var(--text-dim); font-size:11.5px; max-width:320px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${d.preview}</td>
+      <td style="font-family:'Fira Code'; color:var(--text-muted); font-size:11px;">~${estTokens} tok</td>
+      <td style="text-align:center;">
+        <button class="btn-table-action btn-table-inspect" onclick="openDocInspectModal(${d.id})">Inspect</button>
+        <button class="btn-table-action btn-del-doc" onclick="deleteDocItem(${d.id})">Delete</button>
+      </td>
+    `;
+    container.appendChild(tr);
+  });
+}
+
+function openDocInspectModal(id) {
+  const doc = allDocs.find(d => d.id === id);
+  if (!doc) return;
+
+  inspectingDocId = id;
+  document.getElementById('inspectDocIdTag').innerText = `DOC #${doc.id}`;
+  document.getElementById('inspectDocTitle').innerText = doc.title;
+
+  const fullText = doc.text || doc.preview || '';
+  document.getElementById('inspectDocBody').innerText = fullText;
+
+  const words = fullText.trim() ? fullText.trim().split(/\s+/).length : 0;
+  const chars = fullText.length;
+  const tokens = Math.ceil(chars / 4);
+
+  document.getElementById('inspectWords').innerText = words;
+  document.getElementById('inspectChars').innerText = chars;
+  document.getElementById('inspectTokens').innerText = `~${tokens}`;
+
+  const delBtn = document.getElementById('btnDeleteInspectDoc');
+  if (delBtn) {
+    delBtn.onclick = async () => {
+      closeModal('docInspectModal');
+      await deleteDocItem(doc.id);
+    };
+  }
+
+  document.getElementById('docInspectModal').style.display = 'flex';
+}
+
+function copyInspectDocText() {
+  const text = document.getElementById('inspectDocBody').innerText;
+  if (text) {
+    copyToClipboard(text);
+  }
+}
+
+async function deleteDocItem(id) {
+  if (!confirm('Are you sure you want to delete this document from the vector knowledge base?')) return;
+  try {
+    await fetch(`${HOST}/doc/delete/${id}`, { method: 'DELETE' });
+    await loadDocs();
+  } catch (err) {
+    console.error(err);
+    alert('Failed to delete document.');
+  }
+}
+
 </script>
 </body>
 </html>

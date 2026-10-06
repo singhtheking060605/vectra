@@ -1,14 +1,11 @@
-# Build Artifacts & Binaries
-*.exe
+# Build outputs and binaries
 *.o
-*.obj
+*.exe
+*.dll
 *.log
-stderr.txt
-stdout.txt
-*.bak
+*.lnk
+*.tmp
 
-# OS / Editor files
+# System files
 .DS_Store
 Thumbs.db
-.vscode/
-.idea/
